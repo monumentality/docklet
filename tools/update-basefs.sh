@@ -27,9 +27,9 @@ echo "Reading $CONF"
 if [ -f $CONF ] ; then
     . $CONF
     BASEFS=$FS_PREFIX/local/basefs
-    echo "$CONF exit, basefs=$BASEFS"
+    echo "$CONF exists, basefs=$BASEFS"
 else
-    echo "$CONF not exist, default basefs=$BASEFS" 
+    echo "$CONF does not exist, default basefs=$BASEFS" 
 fi
 
 if [ ! -d $BASEFS ] ; then
