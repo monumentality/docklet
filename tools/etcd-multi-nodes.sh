@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # more details for https://coreos.com/etcd/docs/latest
-
+echo "test: $h"
 which etcd &>/dev/null || { echo "etcd not installed, please install etcd first" && exit 1; }
 
 if [ $# -eq 0 ] ; then
