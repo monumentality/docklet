@@ -21,6 +21,7 @@ fi
 # -initial-cluster-state        :  new means join a new cluster; existing means a new node join an existing cluster
 #                               :  new not means clear, old data is still alive
 
+# TODO
 depdir=${0%/*}
 tempdir=/opt/docklet/local
 [ ! -d $tempdir/log ] && mkdir -p $tempdir/log
