@@ -25,6 +25,7 @@ import nodemgr, vclustermgr, etcdlib, network, imagemgr
 import userManager
 import monitor
 import guest_control, threading
+import bidscheduler
 
 #default EXTERNAL_LOGIN=False
 external_login = env.getenv('EXTERNAL_LOGIN')
@@ -138,6 +139,9 @@ def create_cluster(cur_user, user, form):
     image['owner'] = form.get("imageowner", None)
     user_info = G_usermgr.selfQuery(cur_user = cur_user)
     user_info = json.dumps(user_info)
+    
+    # call bidScheduler, check if resourcesNeeded can be acllocated in the bidPrice
+    add_bid(user_info,form.get("resourcesNeeded"),form.get("bidPrice"))
     logger.info ("handle request : create cluster %s with image %s " % (clustername, image['name']))
     [status, result] = G_vclustermgr.create_cluster(clustername, user, image, user_info)
     if status:
