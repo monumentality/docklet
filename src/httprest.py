@@ -26,6 +26,8 @@ import userManager
 import monitor
 import guest_control, threading
 import bidscheduler
+import threading
+
 
 #default EXTERNAL_LOGIN=False
 external_login = env.getenv('EXTERNAL_LOGIN')
@@ -360,7 +362,7 @@ def deleteproxy(cur_user, user, form):
     logger.info ("handle request : delete proxy")
     clustername = form.get("clustername", None)
     G_vclustermgr.deleteproxy(user,clustername)
-    self.response(200, {'success':'true', 'action':'deleteproxy'})
+    return json.dumps({'success':'true', 'action':'deleteproxy'})
 
 @app.route("/monitor/hosts/<com_id>/<issue>/", methods=['POST'])
 @login_required
@@ -369,7 +371,7 @@ def hosts_monitor(cur_user, user, form, com_id, issue):
 
     logger.info("handle request: monitor/hosts")
     res = {}
-    fetcher = monitor.Fetcher(etcdaddr,G_clustername,com_id)
+    fetcher = monitor.Fetcher(com_id)
     if issue == 'meminfo':
         res['meminfo'] = fetcher.get_meminfo()
     elif issue == 'cpuinfo':
@@ -408,7 +410,7 @@ def vnodes_monitor(cur_user, user, form, con_id, issue):
     global G_clustername
     logger.info("handle request: monitor/vnodes")
     res = {}
-    fetcher = monitor.Container_Fetcher(etcdaddr,G_clustername)
+    fetcher = monitor.Container_Fetcher()
     if issue == 'cpu_use':
         res['cpu_use'] = fetcher.get_cpu_use(con_id)
     elif issue == 'mem_use':
@@ -701,9 +703,8 @@ if __name__ == '__main__':
     logger.info("vclustermgr started")
     G_imagemgr = imagemgr.ImageMgr()
     logger.info("imagemgr started")
-    Guest_control = guest_control.Guest(G_vclustermgr,G_nodemgr)
-    logger.info("guest control started")
-    threading.Thread(target=Guest_control.work, args=()).start()
+    master_collector = monitor.Master_Collector(G_nodemgr)
+    master_collector.start()
 
     logger.info("startting to listen on: ")
     masterip = env.getenv('MASTER_IP')
