@@ -1,33 +1,28 @@
 * bid scheduler
 接受用户的资源请求，通过竞价方式决定是否满足用户的资源需求
+对外提供的接口：
 ** 依赖monitor接口：
-获取系统总资源量(cpu，内存),总运行时间    5
-获取系统总CPU使用量，内存使用量    5
-获取当前系统cpu使用量，内存使用量    1
-每个用户的总系统cpu使用率，内存使用率    4
-每个物理机的总资源量，总运行时间，当前系统cpu使用量，内存使用量    1
+获取系统总资源量(cpu，内存),总运行时间
+获取系统总CPU使用量，内存使用量
+获取当前系统cpu使用量，内存使用量
+每个用户的总系统cpu使用率，内存使用率
+每个物理机的当前系统cpu使用量，内存使用量
 #+name: import_monitor
 #+BEGIN_SRC python :tangle bidscheduler.py :noweb yes
   from monitor import summary_resources, summary_usage, curr_usage
-  from monitor import summary_usage_per_user, summary_usage_per_user
-  from monitor import curr_usage_per_machine
+  from monitor import per_user_summary_usage, per_user_summary_usage
+  from monitor import per_machine_curr_usage
 #+END_SRC
 ** 提供的接口：
 *** 显示资源分配情况
-显示当前系统的资源分配情况,系统资源分为两种：
-可靠资源，即受到隔离保护的资源，使用cgroup的cpu和memeory保护
-受限制资源：使用cgroup的软限制分配的资源，当系统cpu或者内存不足时，将会减少这些容器的资源
-#+name: global_variables
-#+BEGIN_SRC pyhon :noweb yes
+显示当前系统的资源分配情况,系统资源分为两种，可靠资源，即受到隔离保护的资源，使用cgroup的cpu和memeory限制的
+#+BEGIN_SRC pyhon :tangle bidscheduler.py :noweb yes
 reliable_allocated = []
-reliabel_allocated_sorted_by_bid = []
 restricted_allocated = []
-restricted_allocated_sorted_by_bid = []
 #+END_SRC
-
 *** 处理分配资源请求
 用户在创建集群时，填写所需资源和出价，系统接受资源分配请求，并依据以下规则决定如何分配
-系统具有未分配的可靠资源，把这些可靠资源分配给该请求
+系统具有未分配资源，请求得到满足
 #+BEGIN_SRC python :tangle bidscheduler.py :noweb yes
   def has_reliable_resources(request):
       if(request['slots']+allocated_resources<summary_resources['slots']):
@@ -58,7 +53,7 @@ restricted_allocated_sorted_by_bid = []
       else:
           return False
 #+END_SRC
-系统资源已分配完毕，用户出价不足以抢到可靠资源，但系统存在空闲资源，那么分配给用户受限资源，付费标准按最低标准或者统计的使用量
+系统资源已分配完毕，用户出价不足以抢到可靠资源，但足以抢到受限资源
 #+BEGIN_SRC python :tangle bidscheduler.py :noweb yes
   def can_preempt_restricted_resources(request):
       restricted_allocated_sorted_by_bid = sorted(reliable_allocated, key=lambda k:k['bidprice'])
@@ -74,20 +69,18 @@ restricted_allocated_sorted_by_bid = []
 #+END_SRC
 系统资源已分配完毕，用户出价抢不到可靠资源，也抢不到空闲资源
 #+BEGIN_SRC python :tangle bidscheduler.py :noweb yes
-  <<global_variables>>
   def allocate_resources(request):
       global allocated_resources
       global relibale_allocated
       global relibale_allocated_sorted_by_bid
       global restricted_allocated
       global restricted_allocated_sorted_by_bid
-
       if(has_reliable_resources(request)):
           allocated_machine=sorted_usage_per_machine.keys[0]
           reliable_allocation={userId: request['userId'],
-                               slots: request['slots'],
-                               machine: allocated_machine,
-                               bidprice: request['bidprice']}
+                                 resources: request['slots'],
+                                 machine: allocated_machine,
+                                 bidprice: request['bidprice']}
           reliable_allocations.insert(reliable_allocation)
           #  to-do 把reliable_allocation插入reliable_allocation_sorted_by_bid,并且保持有序
           allocation = {userId: request['userId'],
@@ -96,8 +89,7 @@ restricted_allocated_sorted_by_bid = []
                         bidprice: request['bidprice'],
                         type: reliable}
           return {status:success, allocation:allocation}
-
-      if(can_preempt_reliable_resources(request)):
+      if(can_preempt_restricted_resources(request)):
           can_preempt = 0
           can_preempt_count = 0
           # 把被抢占的可靠资源变成受限制资源
@@ -130,23 +122,23 @@ restricted_allocated_sorted_by_bid = []
                         machine: allocated_machine,
                         type: reliable}
           return {status:success, allocation:allocation}
-
       if(has_restricted_resources(request)):
           sorted_usage_per_machine = sorted(usage_per_machine, key=lambda k: k['usage'], reverse=True)
           allocated_machines=sorted_usage_per_machine.keys[0]
           restricted_allocation={userId: request['userId'],
-                                 slots: request['slots'],
+                                 resources: request['slots'],
                                  machines: allocated_machine}
           restricted_allocations.insert(restricted_allocation)
           allocation = {userId: request['userId'],
-                        slots: request['slots'],
+                        resources: request['slots'],
                         machines: allocated_machines,
                         type: restricted}
           allocations.insert(allocation)
-          return {status:'success', allocation:allocation}
-
+          return {status:success, allocation:allocation}
+      if(can_preempt_restricted_resources(request)):
+          return {status:success, allocation:allocation}
       else:
-          return {status: 'failed'}
+          return {status:failed}
 #+END_SRC
 *** 释放资源
 *** 考虑弹性伸缩
