@@ -141,13 +141,12 @@ def create_cluster(cur_user, user, form):
     user_info = G_usermgr.selfQuery(cur_user = cur_user)
     user_info = json.dumps(user_info)
 
-    # call bidScheduler, check if resourcesNeeded can be acllocated in the bidPrice
     logger.info ("handle request : create cluster %s with image %s " % (clustername, image['name']))
     [status, result] = G_vclustermgr.create_cluster(clustername, user,
                                                     image,
                                                     user_info,
-                                                    form.get("clustersize"),
-                                                    form.get("containersize"),
+                                                    form.get("cluster_size"),
+                                                    form.get("container_size"),
                                                     form.get("bidprice"))
     if status:
         return json.dumps({'success':'true', 'action':'create cluster', 'message':result})
@@ -704,7 +703,7 @@ if __name__ == '__main__':
     logger.info("nodemgr started")
 
     # import bidscheduler
-    bidscheduler.nodermanager = G_nodemgr
+    bidscheduler.nodemanager = G_nodemgr
     bidscheduler.init_allocations()
 
     G_vclustermgr = vclustermgr.VclusterMgr(G_nodemgr, G_networkmgr, etcdclient, ipaddr, mode)

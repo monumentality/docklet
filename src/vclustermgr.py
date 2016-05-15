@@ -52,7 +52,7 @@ class VclusterMgr(object):
                 self.recover_cluster(cluster, user)
         logger.info("recovered all vclusters for all users")
 
-    def create_cluster(self, clustername, username, image, user_info,clustersize,containersize, bidprice):
+    def create_cluster(self, clustername, username, image, user_info,cluster_size,container_size, bidprice):
         if self.is_cluster(clustername, username):
             return [False, "cluster:%s already exists" % clustername]
         clustersize = int(self.defaultsize)
@@ -78,11 +78,12 @@ class VclusterMgr(object):
         clusterid = self._acquire_id()
 
         # call bidscheduler.allocate, get resources
+        logger.info(" call bidscheduler.allocate")
         jobAllocationRequest = {
             jobid: clusterid,
             userid: json.loads(user_info)["userid"],
-            tasks: clustersize,
-            resourcesPerTask: containersize,
+            task_count: cluster_size,
+            resources: container_size,
             bidprice: bidprice
         }
         import bidscheduler

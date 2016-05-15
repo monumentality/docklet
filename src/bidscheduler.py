@@ -1,7 +1,8 @@
 
-from monitor import summary_resources, summary_usage, curr_usage
-from monitor import summary_usage_per_user, summary_usage_per_user
-from monitor import curr_usage_per_machine
+#  from monitor import summary_resources, summary_usage, curr_usage
+#  from monitor import summary_usage_per_user, summary_usage_per_user
+#  from monitor import curr_usage_per_machine
+from log import logger
 import nodemgr
 
 class AllocationOfTask(object):
@@ -11,11 +12,13 @@ class AllocationOfMachine(object):
     __slots__ = ['machineid',"resources","reliable_resources_allocation_summary",
                 'reliable_allocation','curr_usage', 'restricted_allocation']
 
+usages=[]
 allocations = {}
-nodemanager
+nodemanager = {}
 def init_allocations():
     global allocations
     global nodemanager
+    global usages
     machines = nodemanager.get_allnodes()
     for machine in machines:
         allocation = AllocationOfMachine()
@@ -26,6 +29,11 @@ def init_allocations():
         allocation.restricted_allocation = []
 
         allocations[machine] = allocation
+
+        usage_of_machine = {}
+        usage_of_machine['machineid']=machine
+        usage_of_machine['cpu_utilization']=0.1
+        usages.append(usage_of_machine)
 
 def has_reliable_resources(allocation_of_machine,task_allocation_request):
     if(task_allocation_request['resource']
@@ -124,9 +132,10 @@ def allocate_task_restricted(allocation_of_machine,task_allocation_request):
         return {status: 'failed'}
 
 def allocate(job_allocation_request):
+    logger.info("try allocate")
     global allocations
     job_allocation_response = []
-    sorted(allocations,lambda x: x.reliable_resources_allocation_summary )
+    sorted(allocations,lambda x: x[1].reliable_resources_allocation_summary )
 
     # 先从可靠资源最多的机器分配资源
     for i in range(job_allocation_request['tasks_count']):
@@ -144,14 +153,14 @@ def allocate(job_allocation_request):
         else:
             break
 
-    if (job_allocation_response.size == job_allocation_request['taskcount']):
+    if (job_allocation_response.size == job_allocation_request['task_count']):
         return job_allocation_response
     else:
         # 选择使用率最低的机器，分配restricted_resources
-        global usage_per_machine
-        sorted(usage_per_machine, lambda x: x.cpu_utilization, reverse=True)
-        for i in range(job_allocation_response.size..job_allocation_request['taskcount']):
-            machineid = usage_per_machine[i]['machineid']
+        global usages
+        sorted(usages, lambda x: x['cpu_utilization'], reverse=True)
+        for i in range(job_allocation_response.size, job_allocation_request['taskcount']):
+            machineid = usages[i]['machineid']
             allocation_of_machine = allocations[machineid]
             task_allocation_request = {
                 userid: job_allocation_request['userid'],

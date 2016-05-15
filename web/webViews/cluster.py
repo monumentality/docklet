@@ -31,8 +31,9 @@ class createClusterView(normalView):
             'imagename': self.image[:index2],
             'imageowner': self.image[index2+1:index1],
             'imagetype': self.image[index1+1:],
-            'resourcesNeeded':self.resourcesNeeded,
-            'bidPrice':self.bidPrice
+            'cluster_size': self.cluster_size,
+            'container_size': self.container_size,
+            'bidprice': self.bidprice
         }
         result = dockletRequest.post("/cluster/create/", data)
         if(result.get('success', None) == "true"):
