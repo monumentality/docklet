@@ -24,7 +24,6 @@ from socketserver import ThreadingMixIn
 import nodemgr, vclustermgr, etcdlib, network, imagemgr
 import userManager
 import monitor
-import guest_control, threading
 import bidscheduler
 import threading
 
