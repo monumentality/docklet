@@ -52,7 +52,7 @@ class VclusterMgr(object):
                 self.recover_cluster(cluster, user)
         logger.info("recovered all vclusters for all users")
 
-    def create_cluster(self, clustername, username, image, user_info):
+    def create_cluster(self, clustername, username, image, user_info,clustersize,containersize, bidprice):
         if self.is_cluster(clustername, username):
             return [False, "cluster:%s already exists" % clustername]
         clustersize = int(self.defaultsize)
@@ -76,12 +76,25 @@ class VclusterMgr(object):
             return [False, result]
         ips = result
         clusterid = self._acquire_id()
+
+        # call bidscheduler.allocate, get resources
+        jobAllocationRequest = {
+            jobid: clusterid,
+            userid: json.loads(user_info)["userid"],
+            tasks: clustersize,
+            resourcesPerTask: containersize,
+            bidprice: bidprice
+        }
+        import bidscheduler
+        job_allocations = bidscheduler.allocate(jobAllocationRequest)
+        
         clusterpath = self.fspath+"/global/users/"+username+"/clusters/"+clustername
         hostpath = self.fspath+"/global/users/"+username+"/hosts/"+str(clusterid)+".hosts"
         hosts = "127.0.0.1\tlocalhost\n"
         containers = []
         for i in range(0, clustersize):
-            onework = workers[random.randint(0, len(workers)-1)]
+            # onework = workers[random.randint(0, len(workers)-1)]
+            onework = workers[job_allocations[i]['machineid']]
             lxc_name = username + "-" + str(clusterid) + "-" + str(i)
             hostname = "host-"+str(i)
             logger.info ("create container with : name-%s, username-%s, clustername-%s, clusterid-%s, hostname-%s, ip-%s, gateway-%s, image-%s" % (lxc_name, username, clustername, str(clusterid), hostname, ips[i], gateway, image_json))
@@ -249,7 +262,7 @@ class VclusterMgr(object):
         self.networkmgr.release_userips(username, ips)
         self.networkmgr.printpools()
         os.remove(self.fspath+"/global/users/"+username+"/clusters/"+clustername)
-        os.remove(self.fspath+"/global/users/"+username+"/hosts/"+str(info['clusterid'])+".hosts")
+        os.remove(self.fspah+"/global/users/"+username+"/hosts/"+str(info['clusterid'])+".hosts")
         
         groupname = json.loads(user_info)["data"]["group"]
         [status, clusters] = self.list_clusters(username)

@@ -704,10 +704,10 @@ if __name__ == '__main__':
     G_nodemgr = nodemgr.NodeMgr(G_networkmgr, etcdclient, addr = ipaddr, mode=mode)
     logger.info("nodemgr started")
 
-    # import bidscheduler
+    # pass to bidscheduler
+    import bidscheduler
     bidscheduler.nodermanager = G_nodemgr
-    bidscheduler.init_allocations()
-
+    
     G_vclustermgr = vclustermgr.VclusterMgr(G_nodemgr, G_networkmgr, etcdclient, ipaddr, mode)
     logger.info("vclustermgr started")
     G_imagemgr = imagemgr.ImageMgr()
