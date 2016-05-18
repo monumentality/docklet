@@ -79,23 +79,26 @@ class VclusterMgr(object):
 
         # call bidscheduler.allocate, get resources
         logger.info(" call bidscheduler.allocate")
-        jobAllocationRequest = {
-            jobid: clusterid,
-            userid: json.loads(user_info)["userid"],
-            task_count: cluster_size,
-            resources: container_size,
-            bidprice: bidprice
+        logger.info(user_info)
+        job_allocation_request = {
+            'jobid': clusterid,
+            'userid': username,
+            'tasks_count': cluster_size,
+            'resources': container_size,
+            'bidprice': bidprice
         }
         import bidscheduler
-        job_allocations = bidscheduler.allocate(jobAllocationRequest)
+        job_allocations = bidscheduler.allocate(job_allocation_request)
         
         clusterpath = self.fspath+"/global/users/"+username+"/clusters/"+clustername
         hostpath = self.fspath+"/global/users/"+username+"/hosts/"+str(clusterid)+".hosts"
         hosts = "127.0.0.1\tlocalhost\n"
         containers = []
+        logger.info(workers)
         for i in range(0, clustersize):
             # onework = workers[random.randint(0, len(workers)-1)]
-            onework = workers[job_allocations[i]['machineid']]
+            #onework = workers[job_allocations[i]['allocation'].machineid]
+            onework = self.nodemgr.ip_to_rpc(job_allocations[i]['allocation'].machineid)
             lxc_name = username + "-" + str(clusterid) + "-" + str(i)
             hostname = "host-"+str(i)
             logger.info ("create container with : name-%s, username-%s, clustername-%s, clusterid-%s, hostname-%s, ip-%s, gateway-%s, image-%s" % (lxc_name, username, clustername, str(clusterid), hostname, ips[i], gateway, image_json))

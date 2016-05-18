@@ -585,6 +585,7 @@ def selfModify_user(cur_user, user, form):
 
 @app.errorhandler(500)
 def internal_server_error(error):
+    logger.debug(error)
     logger.debug("An internel server error occured")
     return json.dumps({'success':'false', 'message':'500 Internal Server Error', 'Unauthorized': 'True'})
 

@@ -4,21 +4,86 @@
 #  from monitor import curr_usage_per_machine
 from log import logger
 import nodemgr
-
+import bisect, uuid
 class AllocationOfTask(object):
-    __slots__ = 'uuid','userid','jobid','taskid','resources','bidprice','type'
-
+    __slots__ = 'id','userid','jobid','taskid','resources','bidprice','type','machineid'
+    def __lt__(self, other):
+        if self.bidprice < other.bidprice:
+            return True
+        else:
+            return False
+    def __le__(self, other): 
+        if self.bidprice <= other.bidprice:
+            return True
+        else:
+            return False
+    def __eq__(self, other):
+        if self.bidprice == other.bidprice:
+            return True
+        else:
+            return False
+    def __ne__(self, other):
+        if self.bidprice != other.bidprice:
+            return True
+        else:
+            return False
+    def __gt__(self, other):
+        if self.bidprice > other.bidprice:
+            return True
+        else:
+            return False
+    def __ge__(self, other):
+        if self.bidprice >=  other.bidprice:
+            return True
+        else:
+            return False
+         
 class AllocationOfMachine(object):
     __slots__ = ['machineid',"resources","reliable_resources_allocation_summary",
                 'reliable_allocation','curr_usage', 'restricted_allocation']
+    def __lt__(self, other):
+        if self.reliable_resources_allocation_summary < other.reliable_resources_allocation_summary:
+            return True
+        else:
+            return False
+    def __le__(self, other):
+        if self.reliable_resources_allocation_summary <= other.reliable_resources_allocation_summary:
+            return True
+        else:
+            return False
+    def __eq__(self, other):
+        if self.reliable_resources_allocation_summary == other.reliable_resources_allocation_summary:
+            return True
+        else:
+            return False
+    def __ne__(self, other):
+        if self.reliable_resources_allocation_summary != other.reliable_resources_allocation_summary:
+            return True
+        else:
+            return False
+    def __gt__(self, other):
+        if self.reliable_resources_allocation_summary > other.reliable_resources_allocation_summary:
+            return True
+        else:
+            return False
+    def __ge__(self, other):
+        if self.reliable_resources_allocation_summary >=  other.reliable_resources_allocation_summary:
+            return True
+        else:
+            return False
 
 usages=[]
-allocations = {}
+allocations_dic = {}
+allocations_list = []
 nodemanager = {}
+
 def init_allocations():
-    global allocations
+    global allocations_dic
+    global allocations_list
     global nodemanager
     global usages
+    logger.info("init allocations:")
+
     machines = nodemanager.get_allnodes()
     for machine in machines:
         allocation = AllocationOfMachine()
@@ -27,28 +92,32 @@ def init_allocations():
         allocation.reliable_resources_allocation_summary = 0
         allocation.reliable_allocation = []
         allocation.restricted_allocation = []
-
-        allocations[machine] = allocation
-
+        
+        allocations_dic[machine] = allocation
+        bisect.insort(allocations_list,allocation)
+        
         usage_of_machine = {}
         usage_of_machine['machineid']=machine
         usage_of_machine['cpu_utilization']=0.1
         usages.append(usage_of_machine)
+        
+        logger.info(allocations_list)
+        logger.info(allocations_dic)
 
 def has_reliable_resources(allocation_of_machine,task_allocation_request):
-    if(task_allocation_request['resource']
+    if(task_allocation_request['resources']
        +allocation_of_machine.reliable_resources_allocation_summary
        < allocation_of_machine.resources):
         return True
     else:
         return False
 
-def can_preempt_reliable_resources(taskAllocationRequest):
+def can_preempt_reliable_resources(allocation_of_machine, taskAllocationRequest):
     to_be_preempted=0
-    for a in reliable_allocation:
+    for a in allocation_of_machine.reliable_allocation:
         if (a.bidprice< task_allocation_request['bidprice']):
-            to_be_preempted += a.bidprice
-            if to_be_preempted > task_allocation_request['resource']:
+            to_be_preempted += a.resources
+            if to_be_preempted > task_allocation_request['resources']:
                 return True
         else:
             break
@@ -62,35 +131,34 @@ def has_restricted_resources(allocation_of_machine,task_allocation_request):
     else:
         return False
 
-import uuid, bisect
 def allocate_task(allocation_of_machine,task_allocation_request):
-    if(has_reliable_resources(request)):
+    if(has_reliable_resources(allocation_of_machine,task_allocation_request)):
         allocation_of_task = AllocationOfTask()
         allocation_of_task.id = uuid.uuid4()
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
+        allocation_of_task.machineid = allocation_of_machine.machineid
         allocation_of_task.type = 'reliable'
-        bisect.insort(allocation_of_machine.reliable_allocation, allocation_of_task, lambda x: x.bidprice)
-        return {status:success, allocation:allocation_of_task}
+        bisect.insort(allocation_of_machine.reliable_allocation, allocation_of_task)
+        return {'status':'success', 'allocation':allocation_of_task}
 
-    if(can_preempt_reliable_resources(task_allocation_request)):
+    if(can_preempt_reliable_resources(allocation_of_machine,task_allocation_request)):
         can_preempt = 0
         can_preempt_count = 0
         # 把被抢占的可靠资源变成受限制资源
-        for i,a in reliableAllocation:
-            can_preempt+=a['slots']
+        for i,a in allocation_of_machine.reliableAllocation:
+            can_preempt+=a['resources']
             can_preempt_count+=1
             a.type = 'restricted'
-            import bisect
-            bisect.insort(allocation_of_machine.restricted_allocation,a, lambda x: x.bidprice)
+            bisect.insort(allocation_of_machine.restricted_allocation,a)
             # to-do 调整这些容器的cgroup设置，使用软限制模式，只能使用空闲资源
 
             if can_preempt>=task_allocation_request['resources']:
                 break
             # 把被抢占的可靠资源从reliable_allocation中删除
-        del reliable_allocations[0..can_preempt_count]
+        del allocation_of_machine.reliable_allocations[0..can_preempt_count]
 
         allocation_of_task = AllocationOfTask()
         allocation_of_task.id = uuid.uuid4()
@@ -98,78 +166,89 @@ def allocate_task(allocation_of_machine,task_allocation_request):
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
+        allocation_of_task.resources = task_allocation_request['resources']
+        allocation_of_task.machineid = allocation_of_machine.machineid        
         allocation_of_task.type = 'reliable'
-        bisect.insort(allocation_of_machine.reliable_allocation,AllocationOfTask)
-        return {status:success, allocation:allocation}
+        bisect.insort(allocation_of_machine.reliable_allocation, allocation_of_task)
+        return {'status':'success', 'allocation':allocation}
 
-    if(has_restricted_resources(task_allocation_request)):
+    if(has_restricted_resources(allocation_of_machine,task_allocation_request)):
         allocation_of_task = AllocationOfTask()
         allocation_of_task.id = uuid.uuid4()
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
+        allocation_of_task.machineid = allocation_of_machine.machineid
         allocation_of_task.type = 'restricted'
-        bisect.insort(allocation_of_machine.restricted_allocation,AllocationOfTask)
-        return {status:'success', allocation:allocation_of_task}
+        bisect.insort(allocation_of_machine.restricted_allocation, allocation_of_task)
+        return {'status':'success', 'allocation':allocation_of_task}
 
     else:
-        return {status: 'failed'}
+        return {'status': 'failed'}
 
 def allocate_task_restricted(allocation_of_machine,task_allocation_request):
-    if(has_restricted_resources(task_allocation_request)):
+    if(has_restricted_resources(allocation_of_machine,task_allocation_request)):
         allocation_of_task = AllocationOfTask()
         allocation_of_task.id = uuid.uuid4()
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
+        allocation_of_task.resources = task_allocation_request['resources']
+        allocation_of_task.machineid = allocation_of_machine.machineid
         allocation_of_task.type = 'restricted'
-        bisect.insort(allocation_of_machine.restricted_allocation,AllocationOfTask)
-        return {status:'success', allocation:allocation_of_task}
+        bisect.insort(allocation_of_machine.restricted_allocation, allocation_of_task)
+        return {'status':'success', 'allocation':allocation_of_task}
 
     else:
-        return {status: 'failed'}
+        return {'status': 'failed'}
 
 def allocate(job_allocation_request):
-    logger.info("try allocate")
-    global allocations
+    logger.debug("try allocate")
+    print ("try allocate")
+    global allocations_dic
+    global allocation_list
     job_allocation_response = []
-    sorted(allocations,lambda x: x[1].reliable_resources_allocation_summary )
 
+    logger.debug("a1")
     # 先从可靠资源最多的机器分配资源
-    for i in range(job_allocation_request['tasks_count']):
+    for i in range(int(job_allocation_request['tasks_count'])):
         task_allocation_request = {
-            userid: job_allocation_request['userid'],
-            jobid: job_allocation_request['jobid'],
-            taskid: i,
-            bidprice: job_allocation_request['bidprice'],
-            resources: job_allocation_request['resources'],
+            'userid': job_allocation_request['userid'],
+            'jobid': job_allocation_request['jobid'],
+            'taskid': i,
+            'bidprice': job_allocation_request['bidprice'],
+            'resources': int(job_allocation_request['resources']),
         }
-        if( has_reliable_resource(allocations[i],task_allocation_request)
-            or can_preempt_reliable_resources(allocations[i],task_allocation_request)):
-            task_allocation_response = allocate_task(task_allocation_request)
-            job_allocation_response.add(task_allocation_response)
+        logger.debug("a2")
+        if( has_reliable_resources(allocations_list[i],task_allocation_request)
+            or can_preempt_reliable_resources(allocations_list[i],task_allocation_request)):
+            task_allocation_response = allocate_task(allocations_list[i],task_allocation_request)
+            job_allocation_response.append(task_allocation_response)
         else:
             break
-
-    if (job_allocation_response.size == job_allocation_request['task_count']):
+    logger.info("a3")
+    if (len(job_allocation_response) == int(job_allocation_request['tasks_count'])):
+        logger.info("a4")
         return job_allocation_response
     else:
         # 选择使用率最低的机器，分配restricted_resources
         global usages
-        sorted(usages, lambda x: x['cpu_utilization'], reverse=True)
-        for i in range(job_allocation_response.size, job_allocation_request['taskcount']):
-            machineid = usages[i]['machineid']
-            allocation_of_machine = allocations[machineid]
+        sorted(usages, key=lambda x: x['cpu_utilization'], reverse=True)
+        j = 0 
+        for i in range(len(job_allocation_response), int(job_allocation_request['tasks_count'])):
+            machineid = usages[j]['machineid']
+            j += 1
+            allocation_of_machine = allocations_map[machineid]
             task_allocation_request = {
-                userid: job_allocation_request['userid'],
-                jobid: job_allocation_request['jobid'],
-                taskid: i,
-                bidprice: job_allocation_request['bidprice'],
-                resources: job_allocation_request['resources']
+                'userid': job_allocation_request['userid'],
+                'jobid': job_allocation_request['jobid'],
+                'taskid': i,
+                'bidprice': job_allocation_request['bidprice'],
+                'resources': int(job_allocation_request['resources'])
             }
-            task_allocation_response = allocate_restricted(allocation_of_machine,task_allocation_request)
-            job_allocation_response.add(task_allocation_response)
+            task_allocation_response = allocate_task_restricted(allocation_of_machine,task_allocation_request)
+            job_allocation_response.append(task_allocation_response)
 
     return job_allocation_response

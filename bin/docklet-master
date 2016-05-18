@@ -108,7 +108,7 @@ do_start_master () {
 	#    recovery : start cluster and recover status from etcd and global directory
 	# Default is "recovery"
 
-    start-stop-daemon --start --oknodo --background --pidfile $PIDFILE_MASTER --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON_MASTER -- $DAEMON_OPTS_MASTER
+    start-stop-daemon --start --oknodo --background --pidfile $PIDFILE_MASTER --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c "exec $DAEMON_MASTER $DAEMON_OPTS_MASTER > $LOG_DIR/master.log 2>&1"
     log_end_msg $?
 }
 
@@ -140,7 +140,7 @@ do_start_web () {
 
     DAEMON_OPTS_WEB="-p $WEB_PORT"
 
-    start-stop-daemon --start --background --pidfile $PIDFILE_WEB --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON_WEB -- $DAEMON_OPTS_WEB
+    start-stop-daemon --start --background --pidfile $PIDFILE_WEB --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas /bin/bash -- -c "exec $DAEMON_WEB $DAEMON_OPTS_WEB > $LOG_DIR/web.log 2>&1"
     log_end_msg $?
 }
 
