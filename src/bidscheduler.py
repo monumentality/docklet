@@ -88,7 +88,7 @@ def init_allocations():
     for machine in machines:
         allocation = AllocationOfMachine()
         allocation.machineid = machine
-        allocation.resources = 100
+        allocation.resources = 2
         allocation.reliable_resources_allocation_summary = 0
         allocation.reliable_allocation = []
         allocation.restricted_allocation = []
@@ -153,11 +153,13 @@ def allocate_task(allocation_of_machine,task_allocation_request):
             can_preempt_count+=1
             a.type = 'restricted'
             bisect.insort(allocation_of_machine.restricted_allocation,a)
-            # to-do 调整这些容器的cgroup设置，使用软限制模式，只能使用空闲资源
 
             if can_preempt>=task_allocation_request['resources']:
                 break
-            # 把被抢占的可靠资源从reliable_allocation中删除
+        # to-do 调整这些容器的cgroup设置，使用软限制模式，只能使用空闲资源
+        for i in 0..can_preempt_count:
+            change_cgroup_settings(allocation_of_machine.reliable_allocation[i].taskid, 'restricted')
+        # 把被抢占的可靠资源从reliable_allocation中删除
         del allocation_of_machine.reliable_allocations[0..can_preempt_count]
 
         allocation_of_task = AllocationOfTask()
@@ -252,3 +254,12 @@ def allocate(job_allocation_request):
             job_allocation_response.append(task_allocation_response)
 
     return job_allocation_response
+
+def release_allocation(allocationid):
+    return
+
+def change_cgroup_settings(taskid, type):
+    return
+
+def change_bid(jobid):
+    return

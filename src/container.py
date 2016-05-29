@@ -21,13 +21,25 @@ class Container(object):
         self.lxcpath = "/var/lib/lxc"
         self.imgmgr = imagemgr.ImageMgr()
 
-    def create_container(self, lxc_name, username, user_info, clustername, clusterid, containerid, hostname, ip, gateway, vlanid, image):
+    def create_container(self, configuration):
+        lxc_name = configuration['lxc_name']
+        username = configuration['username']
+        user_info = configuration['user_info']
+        clustername = configuration['clustername']
+        clusterid = configuration['clusterid']
+        containerid = configuration['containerid']
+        hostname = configuration['hostname']
+        ip = configuration['ip']
+        gateway = configuration['gateway']
+        vlanid = configuration['vlanid']
+        image =  configuration['image']
+        allocation = configuration['allocation']
         logger.info("create container %s of %s for %s" %(lxc_name, clustername, username))
         try:
             user_info = json.loads(user_info) 
-            cpu = int(user_info["data"]["groupinfo"]["cpu"]) * 100000
-            memory = user_info["data"]["groupinfo"]["memory"]
-            disk = user_info["data"]["groupinfo"]["disk"]
+#            cpu = int(user_info["data"]["groupinfo"]["cpu"]) * 100000
+#            memory = user_info["data"]["groupinfo"]["memory"]
+#            disk = user_info["data"]["groupinfo"]["disk"]
             image = json.loads(image) 
             status = self.imgmgr.prepareFS(username,image,lxc_name,disk)
             if not status:
@@ -45,42 +57,9 @@ class Container(object):
                 return [False, "user directory not found"]
             sys_run("mkdir -p /var/lib/lxc/%s" % lxc_name)
             logger.info("generate config file for %s" % lxc_name)
+
+            self.set_cgroup_settings(configuration)
             
-            def config_prepare(content):
-                content = content.replace("%ROOTFS%",rootfs)
-                content = content.replace("%HOSTNAME%",hostname)
-                content = content.replace("%IP%",ip)
-                content = content.replace("%GATEWAY%",gateway)
-                content = content.replace("%CONTAINER_MEMORY%",str(memory))
-                content = content.replace("%CONTAINER_CPU%",str(cpu))
-                content = content.replace("%FS_PREFIX%",self.fspath)
-                content = content.replace("%USERNAME%",username)
-                content = content.replace("%CLUSTERID%",str(clusterid))
-                content = content.replace("%LXCSCRIPT%",env.getenv("LXC_SCRIPT"))
-                content = content.replace("%LXCNAME%",lxc_name)
-                content = content.replace("%VLANID%",str(vlanid))
-                content = content.replace("%CLUSTERNAME%", clustername)
-                content = content.replace("%VETHPAIR%", str(clusterid)+'-'+str(containerid))
-                return content
-
-            conffile = open(self.confpath+"/container.conf", 'r')
-            conftext = conffile.read()
-            conffile.close()
-            conftext = config_prepare(conftext)
-
-            conffile = open("/var/lib/lxc/%s/config" % lxc_name,"w")
-            conffile.write(conftext)
-            conffile.close()
-
-            if os.path.isfile(self.confpath+"/lxc.custom.conf"):
-                conffile = open(self.confpath+"/lxc.custom.conf", 'r')
-                conftext = conffile.read()
-                conffile.close()
-                conftext = config_prepare(conftext)
-                conffile = open("/var/lib/lxc/%s/config" % lxc_name, 'a')
-                conffile.write(conftext)
-                conffile.close()
-
             #logger.debug(Ret.stdout.decode('utf-8'))
             logger.info("create container %s success" % lxc_name)
 
@@ -355,3 +334,63 @@ IP=%s
         else:
             logger.error ("check all containers failed")
             return [False, 'not ok']
+
+
+    def config_prepare(self,content,configuration):
+        content = content.replace("%ROOTFS%",configuration['rootfs'])
+        content = content.replace("%HOSTNAME%",configuration['hostname'])
+        content = content.replace("%IP%",configuration['ip'])
+        content = content.replace("%GATEWAY%",configuration['gateway'])
+        content = content.replace("%CONTAINER_MEMORY%",str(configuration['memory']))
+        content = content.replace("%CONTAINER_MEMORY_SW%",str(configuration['memory_sw']))
+        content = content.replace("%CONTAINER_MEMORY_SOFT%",str(configuration['memory_soft']))
+        content = content.replace("%CONTAINER_CPU%",str(configuration['cpu']))
+        content = content.replace("%FS_PREFIX%",self.fspath)
+        content = content.replace("%USERNAME%",configuration['username'])
+        content = content.replace("%CLUSTERID%",str(configuration['clusterid']))
+        content = content.replace("%LXCSCRIPT%",env.getenv("LXC_SCRIPT"))
+        content = content.replace("%LXCNAME%",configuration['lxc_name'])
+        content = content.replace("%VLANID%",str(configuration['vlanid']))
+        content = content.replace("%CLUSTERNAME%", configuration['clustername'])
+        content = content.replace("%VETHPAIR%", str(configuration['clusterid'])+'-'+str(configuration['containerid']))
+        return content
+
+    def set_cgroup_settings(self, configuration):
+        total_cpus =2
+        total_memory =2
+        allocation = configuration['allocation']
+        if(allocation.type=="reliable"):
+            configuration['memory'] = int(allocation.resources) * 1024
+            configuration['memory_sw'] = int(allocation.resources) * 2048
+            configuration['memory_soft'] = int(allocation.resources) * 1024 * 1.5
+            configuration['cpu'] =  int(allocation.resources) / (total_cpus * 0.8) * 1024
+        else:
+            configuration['memory'] = total_memory * 0.2 * 0.1
+            configuration['memory_sw'] = int(allocation.resources) * 2048
+            configuration['memory_soft'] = int(allocation.resources) * 1024
+            configuration['cpu'] = 0.1 * 0.2  * 1024
+            
+        conffile = open(self.confpath+"/container.conf", 'r')
+        conftext = conffile.read()
+        conffile.close()
+        conftext = self.config_prepare(conftext,configuration)
+        
+        conffile = open("/var/lib/lxc/%s/config" % configuration['lxc_name'],"w")
+        conffile.write(conftext)
+        conffile.close()
+        
+        if os.path.isfile(self.confpath+"/lxc.custom.conf"):
+            conffile = open(self.confpath+"/lxc.custom.conf", 'r')
+            conftext = conffile.read()
+            conffile.close()
+            conftext = config_prepare(conftext)
+            conffile = open("/var/lib/lxc/%s/config" % configuration['lxc_name'], 'a')
+            conffile.write(conftext)
+            conffile.close()
+            
+        return
+
+    def change_cgroup_settings(self, resource_id):
+        return
+
+    

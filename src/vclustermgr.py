@@ -99,16 +99,37 @@ class VclusterMgr(object):
             # onework = workers[random.randint(0, len(workers)-1)]
             #onework = workers[job_allocations[i]['allocation'].machineid]
             onework = self.nodemgr.ip_to_rpc(job_allocations[i]['allocation'].machineid)
+            resource_type = job_allocations[i]['allocation'].type
             lxc_name = username + "-" + str(clusterid) + "-" + str(i)
             hostname = "host-"+str(i)
             logger.info ("create container with : name-%s, username-%s, clustername-%s, clusterid-%s, hostname-%s, ip-%s, gateway-%s, image-%s" % (lxc_name, username, clustername, str(clusterid), hostname, ips[i], gateway, image_json))
-            [success,message] = onework.create_container(lxc_name, username, user_info , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json)
+
+            configuration = {
+                'lxc_name': lxc_name,
+                'username': username,
+                'user_info': user_info,
+                'clustername': clustername,
+                'clusterid':str(clusterid),
+                'containerid':str(i),
+                'hostname':hostname,
+                'ip':ips[i],
+                'gateway':gateway,
+                'vlanid':str(vlanid),
+                'image':image_json,
+                'allocation':job_allocation[i]['allocation']
+            }
+
+            # [success,message] = onework.create_container(lxc_name, username, user_info , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json,resource_type)
+            
+            [success,message] = onework.create_container(configuration)
+            
             if success is False:
                 logger.info("container create failed, so vcluster create failed")
                 return [False, message]
             logger.info("container create success")
             hosts = hosts + ips[i].split("/")[0] + "\t" + hostname + "\t" + hostname + "."+clustername + "\n"
             containers.append({ 'containername':lxc_name, 'hostname':hostname, 'ip':ips[i], 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") })
+            
         hostfile = open(hostpath, 'w')
         hostfile.write(hosts)
         hostfile.close()
