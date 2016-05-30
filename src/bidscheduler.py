@@ -138,6 +138,7 @@ def allocate_task(allocation_of_machine,task_allocation_request):
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
+        allocation_of_task.resources = task_allocation_request['resources']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
         allocation_of_task.machineid = allocation_of_machine.machineid
         allocation_of_task.type = 'reliable'
@@ -167,6 +168,7 @@ def allocate_task(allocation_of_machine,task_allocation_request):
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
+        allocation_of_task.resources = task_allocation_request['resources']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
         allocation_of_task.resources = task_allocation_request['resources']
         allocation_of_task.machineid = allocation_of_machine.machineid        
@@ -180,6 +182,7 @@ def allocate_task(allocation_of_machine,task_allocation_request):
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
+        allocation_of_task.resources = task_allocation_request['resources']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
         allocation_of_task.machineid = allocation_of_machine.machineid
         allocation_of_task.type = 'restricted'
@@ -196,6 +199,7 @@ def allocate_task_restricted(allocation_of_machine,task_allocation_request):
         allocation_of_task.userid = task_allocation_request['userid']
         allocation_of_task.jobid = task_allocation_request['jobid']
         allocation_of_task.taskid = task_allocation_request['taskid']
+        allocation_of_task.resources = task_allocation_request['resources']
         allocation_of_task.bidprice = task_allocation_request['bidprice']
         allocation_of_task.resources = task_allocation_request['resources']
         allocation_of_task.machineid = allocation_of_machine.machineid

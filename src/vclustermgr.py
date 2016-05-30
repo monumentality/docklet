@@ -99,7 +99,6 @@ class VclusterMgr(object):
             # onework = workers[random.randint(0, len(workers)-1)]
             #onework = workers[job_allocations[i]['allocation'].machineid]
             onework = self.nodemgr.ip_to_rpc(job_allocations[i]['allocation'].machineid)
-            resource_type = job_allocations[i]['allocation'].type
             lxc_name = username + "-" + str(clusterid) + "-" + str(i)
             hostname = "host-"+str(i)
             logger.info ("create container with : name-%s, username-%s, clustername-%s, clusterid-%s, hostname-%s, ip-%s, gateway-%s, image-%s" % (lxc_name, username, clustername, str(clusterid), hostname, ips[i], gateway, image_json))
@@ -116,7 +115,8 @@ class VclusterMgr(object):
                 'gateway':gateway,
                 'vlanid':str(vlanid),
                 'image':image_json,
-                'allocation':job_allocation[i]['allocation']
+                'resources': job_allocations[i]['allocation'].resources,
+                'type': job_allocations[i]['allocation'].type
             }
 
             # [success,message] = onework.create_container(lxc_name, username, user_info , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json,resource_type)

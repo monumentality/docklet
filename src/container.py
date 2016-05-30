@@ -5,6 +5,7 @@ import imagemgr
 from log import logger
 import env
 from lvmtool import sys_run, check_volume
+import bidscheduler
 
 class Container(object):
     def __init__(self, addr, etcdclient):
@@ -33,13 +34,13 @@ class Container(object):
         gateway = configuration['gateway']
         vlanid = configuration['vlanid']
         image =  configuration['image']
-        allocation = configuration['allocation']
+
         logger.info("create container %s of %s for %s" %(lxc_name, clustername, username))
         try:
             user_info = json.loads(user_info) 
 #            cpu = int(user_info["data"]["groupinfo"]["cpu"]) * 100000
 #            memory = user_info["data"]["groupinfo"]["memory"]
-#            disk = user_info["data"]["groupinfo"]["disk"]
+            disk = user_info["data"]["groupinfo"]["disk"]
             image = json.loads(image) 
             status = self.imgmgr.prepareFS(username,image,lxc_name,disk)
             if not status:
@@ -50,7 +51,9 @@ class Container(object):
             #    ip, gateway, str(vlanid), str(cpu), str(memory)], stdout=subprocess.PIPE,
             #    stderr=subprocess.STDOUT,shell=False, check=True)
             
+
             rootfs = "/var/lib/lxc/%s/rootfs" % lxc_name
+            configuration['rootfs']=rootfs
             
             if not os.path.isdir("%s/global/users/%s" % (self.fspath,username)):
                 logger.error("user %s directory not found" % username)
@@ -358,17 +361,19 @@ IP=%s
     def set_cgroup_settings(self, configuration):
         total_cpus =2
         total_memory =2
-        allocation = configuration['allocation']
-        if(allocation.type=="reliable"):
-            configuration['memory'] = int(allocation.resources) * 1024
-            configuration['memory_sw'] = int(allocation.resources) * 2048
-            configuration['memory_soft'] = int(allocation.resources) * 1024 * 1.5
-            configuration['cpu'] =  int(allocation.resources) / (total_cpus * 0.8) * 1024
+        resources = configuration['resources']
+        type = configuration['type']
+        logger.debug("set_cgroup_settings")
+        if(type=="reliable"):
+            configuration['memory'] = int(resources) * 1024
+            configuration['memory_sw'] = int(resources) * 2048
+            configuration['memory_soft'] = int(resources) * 1536
+            configuration['cpu'] =  int(int(resources) / (total_cpus * 0.8) * 1024)
         else:
-            configuration['memory'] = total_memory * 0.2 * 0.1
-            configuration['memory_sw'] = int(allocation.resources) * 2048
-            configuration['memory_soft'] = int(allocation.resources) * 1024
-            configuration['cpu'] = 0.1 * 0.2  * 1024
+            configuration['memory'] = int(total_memory * 0.2 * 0.1* 1024)
+            configuration['memory_sw'] = int(resources) * 2048
+            configuration['memory_soft'] = int(resources) * 1024
+            configuration['cpu'] = int(0.1 * 0.2  * 1024)
             
         conffile = open(self.confpath+"/container.conf", 'r')
         conftext = conffile.read()
