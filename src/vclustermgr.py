@@ -118,7 +118,7 @@ class VclusterMgr(object):
                 'resources': job_allocations[i]['allocation'].resources,
                 'type': job_allocations[i]['allocation'].type
             }
-
+            logger.info ( "create using configuration: %s" % str(configuration))
             # [success,message] = onework.create_container(lxc_name, username, user_info , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json,resource_type)
             
             [success,message] = onework.create_container(configuration)

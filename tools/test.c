@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#define MEM 2000000000
+#define MEM 1000000000
 
 
 int main(){
