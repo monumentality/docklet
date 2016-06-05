@@ -5,7 +5,7 @@ import threading, random, time, xmlrpc.client, sys
 from nettools import netcontrol
 from log import logger
 import env
-
+import bidscheduler
 ##########################################
 #                NodeMgr
 # Description : manage the physical nodes
@@ -132,6 +132,7 @@ class NodeMgr(object):
                             % (nodeip, self.workerport)))
                         logger.info ("add %s:%s in rpc client list" %
                             (nodeip, self.workerport))
+                        bidscheduler.addNode(nodeip)
     # get all run nodes' IP addr
     def get_nodeips(self):
         return self.allnodes

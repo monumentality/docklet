@@ -355,8 +355,7 @@ IP=%s
         return content
 
     def set_cgroup_settings(self, configuration):
-        total_cpus =2
-        total_memory =2
+        
         resources = configuration['resources']
         type = configuration['type']
         logger.debug("set_cgroup_settings")
