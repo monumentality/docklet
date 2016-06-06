@@ -101,15 +101,13 @@ def activate():
 def dashboard():
     return dashboardView.as_view()
 
-@app.route("/dashboard_guest/", methods=['GET'])
-def dashboard_guest():
-    resp = make_response(dashboard_guestView.as_view())
-    resp.set_cookie('guest-cookie', cookie_tool.generate_cookie('guest', app.secret_key))
-    return resp
-
 @app.route("/document/", methods=['GET'])
 def redirect_dochome():
     return redirect("http://docklet.unias.org/userguide")
+
+@app.route("/examples/", methods=['GET'])
+def show_examples():
+    return redirect("http://docklet.unias.org/docklet-book/userguide/_book/zh/notebook/docklet-bigdata-python.html")
 
 @app.route("/config/", methods=['GET'])
 @login_required
@@ -265,8 +263,8 @@ def statusRealtime(vcluster_name,node_name):
     statusRealtimeView.node_name = node_name
     return statusRealtimeView.as_view()
 
-@app.route("/monitor/hosts/<comid>/<infotype>", methods=['POST'])
-@app.route("/monitor/vnodes/<comid>/<infotype>", methods=['POST'])
+@app.route("/monitor/hosts/<comid>/<infotype>/", methods=['POST'])
+@app.route("/monitor/vnodes/<comid>/<infotype>/", methods=['POST'])
 @login_required
 def monitor_request(comid,infotype):
     data = {
@@ -328,6 +326,11 @@ def usermodify():
 def quotaadd():
     return quotaaddView.as_view()
 
+@app.route("/quota/chdefault/", methods=['POST'])
+@administration_required
+def chdefault():
+    return chdefaultView.as_view()
+
 @app.route("/group/add/", methods=['POST'])
 @administration_required
 def groupadd():
@@ -349,6 +352,30 @@ def userinfo():
 def userquery():
     return userqueryView.as_view()
 
+@app.route("/system/modify/", methods=['POST'])
+@administration_required
+def systemmodify():
+    return systemmodifyView.as_view()
+
+@app.route("/system/clear_history/", methods=['POST'])
+@administration_required
+def systemclearhistory():
+    return systemclearView.as_view()
+
+@app.route("/system/add/", methods=['POST'])
+@administration_required
+def systemadd():
+    return systemaddView.as_view()
+
+@app.route("/system/delete/", methods=['POST'])
+@administration_required
+def systemdelete():
+    return systemdeleteView.as_view()
+
+@app.route("/system/resetall/", methods=['POST'])
+@administration_required
+def systemresetall():
+    return systemresetallView.as_view()
 
 @app.route("/admin/", methods=['GET', 'POST'])
 @administration_required
@@ -470,4 +497,4 @@ if __name__ == '__main__':
         elif opt in ("-p", "--port"):
             webport = int(arg)
 
-    app.run(host = webip, port = webport, debug = True, threaded=True)
+    app.run(host = webip, port = webport, threaded=True)
