@@ -48,4 +48,4 @@ etcd --name $hostname \
      --listen-client-urls http://$hostip:2379,http://127.0.0.1:2379 \
      --advertise-client-urls http://$hostip:2379 \
      --discovery $cluster_url \
-     --initial-cluster-state new 
+     --initial-cluster-state new &
