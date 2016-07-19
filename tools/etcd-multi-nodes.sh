@@ -45,7 +45,7 @@ hostip=$(ifconfig $network_device | grep "inet addr" | cut -d ':' -f 2 | cut -d 
 etcd --name $hostname \
      --initial-advertise-peer-urls http://$hostip:2380 \
      --listen-peer-urls http://$hostip:2380 \
-     --listen-client-urls http://$hostip:2379 \
+     --listen-client-urls http://$hostip:2379,http://127.0.0.1:2379 \
      --advertise-client-urls http://$hostip:2379 \
      --discovery $cluster_url \
      --initial-cluster-state new 
