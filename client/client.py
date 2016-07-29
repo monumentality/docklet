@@ -20,14 +20,14 @@ def main(ctx,verbose):
         print('running in verbose mode')
 
 @main.command()
-@click.option('--server',help='the ip address of the docklet httprest server you want to login', default='0.0.0.0')
+@click.option('--server',help='the ip address of the docklet httprest server', default='0.0.0.0')
 @click.option('--port',help='the port of the docklet httprest server',default='9000')
-@click.option('--username',help="this is your pku id", prompt=True)
-@click.option('--password',help="this is the password for you pku id",prompt=True, hide_input=True)
+@click.option('--username',help="the username on this server you specified", prompt=True)
+@click.option('--password',help="the password on this server you specified",prompt=True, hide_input=True)
 @click.pass_context
 def login(ctx,server,port,username,password):
     '''
-    login using your pku id and password
+    login your docklet instance
     '''
     if(server != "iwork.pku.edu.cn"):
         data = {"user": username, "key": password}
@@ -89,6 +89,9 @@ def workspace_create(ctx):
 @workspace.command("list")
 @click.pass_context
 def workspace_list(ctx):
+    '''
+    list all the workspaces you created
+    '''
     url = 'http://'+ctx.obj['server']+':'+ctx.obj['port']+'/cluster/list/'
     data = {'token': ctx.obj['token']}
     result = requests.post(url, data = data).json()
