@@ -18,8 +18,8 @@ def main(ctx,verbose):
         print('running in verbose mode')
 
 @main.command()
-@click.option('--username',help="this is your pku id")
-@click.option('--password',help="this is the password for you pku id")
+@click.option('--username',help="this is your pku id", prompt=True)
+@click.option('--password',help="this is the password for you pku id",prompt=True, hide_input=True)
 @click.pass_context
 def login(ctx,username,password):
     '''
