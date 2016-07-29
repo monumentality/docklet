@@ -37,8 +37,8 @@ def login(ctx,username,password):
             url='https://iaaa.pku.edu.cn/iaaa/oauthlogin.do',
             data={
                         'appid': 'iwork',
-                        'userName': '1401214302',
-                        'password': 'fabrega4',
+                        'userName': username,
+                        'password': password,
                         'randCode': "验证码",
                         'smsCode': "短信验证码",
                         'redirUrl':"http://iwork.pku.edu.cn/pkulogin"
