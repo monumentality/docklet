@@ -1,5 +1,7 @@
 import click
 import os
+import requests
+import json
 
 @click.group()
 @click.option('--verbose',is_flag=True,help="flag, to run in verbose mode")
@@ -11,23 +13,39 @@ def main(ctx,verbose):
     ctx.obj={}
     ctx.obj['verbose']=verbose
     if os.path.exists(os.environ['HOME']+"/.docklet"):
-        token_file = open(os.environ['HOME']+"/.docklet","r")
-        ctx.obj['token']=token_file.read()
-    
+        docklet_file = open(os.environ['HOME']+"/.docklet","r")
+        ctx.obj= json.loads(docklet_file.read())
+#        print(ctx.obj)
     if verbose:
         print('running in verbose mode')
 
 @main.command()
+@click.option('--server',help='the ip address of the docklet httprest server you want to login', default='0.0.0.0')
+@click.option('--port',help='the port of the docklet httprest server',default='9000')
 @click.option('--username',help="this is your pku id", prompt=True)
 @click.option('--password',help="this is the password for you pku id",prompt=True, hide_input=True)
 @click.pass_context
-def login(ctx,username,password):
+def login(ctx,server,port,username,password):
     '''
     login using your pku id and password
     '''
-    from requests import Session
+    if(server != "iwork.pku.edu.cn"):
+        data = {"user": username, "key": password}
+        url = 'http://'+server+':'+port+'/login/'
+        result = requests.post(url, data = data).json()
+#        print(result)
+        token= result.get('data').get('token')
+#        print(token)
+        docklet_file = open(os.environ['HOME']+"/.docklet","w")
+        docklet_data={'server':server,'port':port,'token':token}
+        docklet_file.write(json.dumps(docklet_data))
+    else:
+        loginpku(ctx,server,port,username,password)
 
-    session = Session()
+
+    
+def loginpku(ctx,server,port,username,password):
+    session = requests.Session()
 
     # HEAD requests ask for *just* the headers, which is all you need to grab the
     # session cookie
@@ -59,7 +77,7 @@ def workspace(ctx):
     '''
     manage your workspaces
     '''
-    click.echo(ctx.obj['token'])
+#    click.echo(ctx.obj['token'])
 
 @workspace.command("create")
 @click.pass_context
@@ -67,6 +85,14 @@ def workspace_create(ctx):
     '''
     create a workspace
     '''
+
+@workspace.command("list")
+@click.pass_context
+def workspace_list(ctx):
+    url = 'http://'+ctx.obj['server']+':'+ctx.obj['port']+'/cluster/list/'
+    data = {'token': ctx.obj['token']}
+    result = requests.post(url, data = data).json()
+    print(result)
 
 if __name__=="__main__":
     main()
