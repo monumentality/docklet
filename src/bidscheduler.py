@@ -8,7 +8,7 @@ import bisect, uuid
 class AllocationOfTask(object):
     __slots__ = 'id','userid','jobid','taskid','resources','bidprice','type','machineid','lxc_name'
     def __key(self):
-        return (self.userid, self.jobid, self.taskid, self.machineid)
+        return (self.userid, self.jobid, self.taskid)
     def __hash__(self):
         return hash(self.__key())
     def __lt__(self, other):
@@ -22,7 +22,7 @@ class AllocationOfTask(object):
         else:
             return False
     def __eq__(self, other):
-        return self.__key==other.__key
+        return self.__key()==other.__key()
     def __ne__(self, other):
         return self.bidprice != other.bidprice
     def __gt__(self, other):
@@ -74,18 +74,18 @@ usages_list=[]
 machine_usage_dict = {}
 machine_allocation_dict = {}
 allocations_list = []
-nodemanager = {}
+node_manager = {}
 lxcname_allocation_dict = {}
 
 def init_allocations():
     global machine_allocation_dict
     global allocations_list
-    global nodemanager
+    global node_manager
     global usages_list
     global machine_usage_dict
     logger.info("init allocations:")
 
-    machines = nodemanager.get_allnodes()
+    machines = node_manager.get_allnodes()
     for machine in machines:
         allocation = AllocationOfMachine()
         allocation.machineid = machine
@@ -196,7 +196,7 @@ def allocate_task(allocation_of_machine,task_allocation_request):
             
         # to-do 调整这些容器的cgroup设置，使用软限制模式，只能使用空闲资源
         for i in range(0,can_preempt_count):
-            change_cgroup_settings(allocation_of_machine.reliable_allocations[i], 'restricted')
+            change_cgroup_settings(allocation_of_machine.reliable_allocations[i].lxc_name, 'restricted')
 
         # 把被抢占的可靠资源从reliable_allocations中删除
         del allocation_of_machine.reliable_allocations[0:can_preempt_count]
@@ -331,13 +331,15 @@ def release_allocation(lxc_name):
     return
 
 def change_cgroup_settings(lxc_name, type):
+    global lxcname_allocation_dict
+    global node_manager
     allocation_of_task = lxcname_allocation_dict[lxc_name]
     configuration = {
         'resources': allocation_of_task.resources,
         'type': type,
         'lxc_name':allocation_of_task.lxc_name
     }
-    nodemgr.ip_to_rpc(allocation_of_task.machineid).change_cgroup_settings(configuration)
+    node_manager.ip_to_rpc(allocation_of_task.machineid).change_cgroup_settings(configuration)
 
 # 暂时不做，需要设计一下ui
 def change_bid(jobid):

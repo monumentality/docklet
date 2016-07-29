@@ -283,6 +283,7 @@ class VclusterMgr(object):
             worker = self.nodemgr.ip_to_rpc(container['host'])
             worker.delete_container(container['containername'])
             ips.append(container['ip'])
+            bidscheduler.release_resource(container['containername'])
         logger.info("delete vcluster and release vcluster ips")
         self.networkmgr.release_userips(username, ips)
         self.networkmgr.printpools()

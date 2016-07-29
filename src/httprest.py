@@ -787,7 +787,7 @@ if __name__ == '__main__':
     logger.info("nodemgr started")
 
     # import bidscheduler
-    bidscheduler.nodemanager = G_nodemgr
+    bidscheduler.node_manager = G_nodemgr
     bidscheduler.init_allocations()
 
     G_vclustermgr = vclustermgr.VclusterMgr(G_nodemgr, G_networkmgr, etcdclient, ipaddr, mode)

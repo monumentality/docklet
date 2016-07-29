@@ -410,7 +410,7 @@ IP=%s
             configuration['cpu'] = int(0.1 * 0.2  * 1024)
             
         conffile = open(self.confpath+"/container.conf", 'r')
-        conftext = conffile.read()
+        content = conffile.read()
         conffile.close()
         # conftext = self.config_prepare(conftext,configuration)
         content = content.replace("%CONTAINER_MEMORY%",str(configuration['memory']))
@@ -419,7 +419,7 @@ IP=%s
         content = content.replace("%CONTAINER_CPU%",str(configuration['cpu']))
         
         conffile = open("/var/lib/lxc/%s/config" % configuration['lxc_name'],"w")
-        conffile.write(conftext)
+        conffile.write(content)
         conffile.close()
         
         if os.path.isfile(self.confpath+"/lxc.custom.conf"):

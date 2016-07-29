@@ -1,0 +1,7 @@
+client.py
+docklet.egg-info/PKG-INFO
+docklet.egg-info/SOURCES.txt
+docklet.egg-info/dependency_links.txt
+docklet.egg-info/entry_points.txt
+docklet.egg-info/requires.txt
+docklet.egg-info/top_level.txt
