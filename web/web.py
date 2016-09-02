@@ -105,6 +105,10 @@ def dashboard():
 def redirect_dochome():
     return redirect("http://docklet.unias.org/userguide")
 
+@app.route("/examples/", methods=['GET'])
+def show_examples():
+    return redirect("http://docklet.unias.org/docklet-book/userguide/_book/zh/notebook/docklet-bigdata-python.html")
+
 @app.route("/config/", methods=['GET'])
 @login_required
 def config():
