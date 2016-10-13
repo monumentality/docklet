@@ -393,21 +393,20 @@ IP=%s
 
     def change_cgroup_settings(self, configuration):
         # 从etcd获得资源总数
-        total_cpus =2
-        total_memory =2
+        total_cpus = 2
+        total_memory = 2
         resources = configuration['resources']
         type = configuration['type']
         logger.debug("change_cgroup_settings")
         if(type=="reliable"):
             configuration['memory'] = int(resources) * 1024
-            configuration['memory_sw'] = int(resources) * 2048
-            configuration['memory_soft'] = int(resources) * 1536
+#            configuration['memory_sw'] = int(resources) * 2048
             configuration['cpu'] =  int(int(resources) / (total_cpus * 0.8) * 1024)
         else:
-            configuration['memory'] = int(total_memory * 0.2 * 0.1* 1024)
-            configuration['memory_sw'] = int(resources) * 2048
-            configuration['memory_soft'] = int(resources) * 1024
-            configuration['cpu'] = int(0.1 * 0.2  * 1024)
+            configuration['memory_soft'] = int(total_memory * 0.2 * 0.1* 1024)
+            configuration['memory_sw'] = int(resources) * 1024
+            configuration['memory'] = int(resources) * 1024
+            configuration['cpu'] = int(0.1 * 0.2 * total_cpus * 1024)
             
         conffile = open(self.confpath+"/container.conf", 'r')
         content = conffile.read()
