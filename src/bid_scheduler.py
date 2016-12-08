@@ -252,17 +252,17 @@ def dp_allocate_task(allocation_of_machine, task_allocation_request):
 
 #    print(opt)
 
-    opt_complementary = allocation_of_machine.opt_complementary
+#    opt_complementary = allocation_of_machine.opt_complementary
 
 
     # 注意range的用法i in range(a,b,-1), 那么 i<=a, i>b
-    for opt_com in opt_complementary:
-        for i in range(allocation_of_machine.cpus, cpus-1,-1):
-            for j in range(allocation_of_machine.mems, mems-1,-1):
-                opt_com[i][j] = max( opt_com[i-cpus][j-mems] + bid, opt_com[i][j])
+#    for opt_com in opt_complementary:
+#        for i in range(allocation_of_machine.cpus, cpus-1,-1):
+#            for j in range(allocation_of_machine.mems, mems-1,-1):
+#                opt_com[i][j] = max( opt_com[i-cpus][j-mems] + bid, opt_com[i][j])
 
-    b = copy.deepcopy(opt[step-1])
-    opt_complementary.append(b)
+#    b = copy.deepcopy(opt[step-1])
+#    opt_complementary.append(b)
 
 #    print(opt_complementary)    
 #    print(opt)
@@ -312,14 +312,14 @@ def dp_allocate_task(allocation_of_machine, task_allocation_request):
 
         # 实际收费：容器的边际成本
         # 容器的边际成本 = 用户出价 - 总价值最优解 + 不分配该容器时的总价值最优解
-        allocation_of_task.charge = (allocation_of_task.bidprice -
-                                     opt[step][allocation_of_machine.cpus][allocation_of_machine.mems] +
-                                     opt_complementary[i][allocation_of_machine.cpus][allocation_of_machine.mems])
+#        allocation_of_task.charge = (allocation_of_task.bidprice -
+#                                     opt[step][allocation_of_machine.cpus][allocation_of_machine.mems] +
+#                                     opt_complementary[i][allocation_of_machine.cpus][allocation_of_machine.mems])
         allocation_of_machine.reliable_allocations.append(allocation_of_task)
 
 
 #    print(opt)
-    print(allocation_of_machine.reliable_allocations)
+#    print(allocation_of_machine.reliable_allocations)
     
 def has_restricted_resources(allocation_of_machine,task_allocation_request):
     if(task_allocation_request['resources']
@@ -747,8 +747,8 @@ def test7():
     for a in allocations_list:
         print("allocations on machine  %s has total value %s" % (a.machineid, a.opt[-1][a.cpus][a.mems]))
         for allo in a.reliable_allocations:
-            print( "job:%s cpus:%s mems:%s bidprice:%s charge:%s" % (allo.jobid, allo.cpus, allo.mems,allo.bidprice,allo.charge))
-
+#            print( "job:%s cpus:%s mems:%s bidprice:%s charge:%s" % (allo.jobid, allo.cpus, allo.mems,allo.bidprice,allo.charge))
+            print( "job:%s cpus:%s mems:%s bidprice:%s" % (allo.jobid, allo.cpus, allo.mems,allo.bidprice))
 
 # 3个节点，1000个once_for_all == False的job请求，测试性能：
 def test8():
@@ -768,18 +768,14 @@ def test8():
     for a in allocations_list:
         print("allocations on machine  %s has total value %s" % (a.machineid, a.opt[-1][a.cpus][a.mems]))
         for allo in a.reliable_allocations:
-            print( "job:%s cpus:%s mems:%s bidprice:%s charge:%s" % (allo.jobid, allo.cpus, allo.mems,allo.bidprice,allo.charge))
+#            print( "job:%s cpus:%s mems:%s bidprice:%s charge:%s" % (allo.jobid, allo.cpus, allo.mems,allo.bidprice,allo.charge))
+            print( "job:%s cpus:%s mems:%s bidprice:%s" % (allo.jobid, allo.cpus, allo.mems,allo.bidprice))
             
 if __name__=='__main__':
     from time import clock
-#    matrix = [[0 for i in range(3)] for i in range(3)]
-#    matrix[0][1]=2
-#    matrix.append([3,3,3,3])
-#    print(matrix)
-#    print(matrix[3][3])
-    test7()
-#    start = clock()
-#    test8()
-#    finish = clock()
-#    print("1000 requests need %d seconds" % ((finish-start)))
+#    test7()
+    start = clock()
+    test8()
+    finish = clock()
+    print("1000 requests need %d seconds" % ((finish-start)))
 
