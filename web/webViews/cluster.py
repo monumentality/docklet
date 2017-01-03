@@ -1,4 +1,4 @@
-from flask import session
+from flask import session, redirect, request
 from webViews.view import normalView
 from webViews.dockletrequest import dockletRequest
 from webViews.dashboard import *
@@ -12,8 +12,41 @@ class addClusterView(normalView):
     def get(self):
         result = dockletRequest.post("/image/list/")
         images = result.get("images")
+        result = dockletRequest.post("/user/usageQuery/")
+        quota = result.get("quota")
+        usage = result.get("usage")
+        default = result.get("default")
+        restcpu = int(quota['cpu']) - int(usage['cpu'])
+        restmemory = int(quota['memory']) - int(usage['memory'])
+        restdisk = int(quota['disk']) - int(usage['disk'])
+        if restcpu >= int(default['cpu']):
+            defaultcpu = default['cpu']
+        elif restcpu <= 0:
+            defaultcpu = "0"
+        else:
+            defaultcpu = str(restcpu)
+
+        if restmemory >= int(default['memory']): 
+            defaultmemory = default['memory']
+        elif restmemory <= 0:
+            defaultmemory = "0"
+        else:
+            defaultmemory = str(restmemory)
+
+        if restdisk >= int(default['disk']):
+            defaultdisk = default['disk']
+        elif restdisk <= 0:
+            defaultdisk = "0"
+        else:
+            defaultdisk = str(restdisk)
+
+        defaultsetting = {
+                'cpu': defaultcpu,
+                'memory': defaultmemory,
+                'disk': defaultdisk
+                }
         if (result):
-            return self.render(self.template_path, user = session['username'], images = images)
+            return self.render(self.template_path, user = session['username'], images = images, quota = quota, usage = usage, defaultsetting = defaultsetting)
         else:
             self.error()
 
@@ -35,9 +68,9 @@ class createClusterView(normalView):
             'container_size': self.container_size,
             'bidprice': self.bidprice
         }
-        result = dockletRequest.post("/cluster/create/", data)
+        result = dockletRequest.post("/cluster/create/", dict(data, **(request.form)))
         if(result.get('success', None) == "true"):
-            return dashboardView.as_view()
+           return redirect("/dashboard/")
             #return self.render(self.template_path, user = session['username'])
         else:
             return self.render(self.error_path, message = result.get('message'))
@@ -74,9 +107,9 @@ class scaleoutView(normalView):
             'imageowner': self.image[index2+1:index1],
             'imagetype': self.image[index1+1:]
         }
-        result = dockletRequest.post("/cluster/scaleout/", data)
+        result = dockletRequest.post("/cluster/scaleout/", dict(data, **(request.form)))
         if(result.get('success', None) == "true"):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             return self.render(self.error_path, message = result.get('message'))
 
@@ -89,7 +122,7 @@ class scaleinView(normalView):
         }
         result = dockletRequest.post("/cluster/scalein/", data)
         if(result):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             self.error()
 
@@ -107,6 +140,7 @@ class listClusterView(normalView):
 
 class startClusterView(normalView):
     template_path = "dashboard.html"
+    error_path = "error.html"
 
     @classmethod
     def get(self):
@@ -114,10 +148,11 @@ class startClusterView(normalView):
                 "clustername": self.clustername
         }
         result = dockletRequest.post("/cluster/start/", data)
-        if(result):
-            return dashboardView.as_view()
+        if(result.get('success', None) == "true"):
+           return redirect("/dashboard/")
+            #return self.render(self.template_path, user = session['username'])
         else:
-            return self.error()
+            return self.render(self.error_path, message = result.get('message'))
 
 class stopClusterView(normalView):
     template_path = "dashboard.html"
@@ -129,7 +164,7 @@ class stopClusterView(normalView):
         }
         result = dockletRequest.post("/cluster/stop/", data)
         if(result):
-            return dashboardView.as_view()
+            return redirect("/dashboard/")
         else:
             return self.error()
 
@@ -163,7 +198,7 @@ class deleteClusterView(normalView):
         }
         result = dockletRequest.post("/cluster/delete/", data)
         if(result):
-            return dashboardView.as_view()
+            return redirect("/dashboard/")
         else:
             return self.error()
 
@@ -202,7 +237,7 @@ class saveImageView(normalView):
         if(result):
             if result.get('success') == 'true':
                 #return self.render(self.success_path, user = session['username'])
-                return configView.as_view()
+                return redirect("/config/") 
                 #res = detailClusterView()
                 #res.clustername = self.clustername
                 #return res.as_view()
@@ -224,7 +259,7 @@ class shareImageView(normalView):
         }
         result = dockletRequest.post("/image/share/", data)
         if(result):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             self.error()
 
@@ -238,7 +273,7 @@ class unshareImageView(normalView):
         }
         result = dockletRequest.post("/image/unshare/", data)
         if(result):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             self.error()
 
@@ -252,7 +287,7 @@ class deleteImageView(normalView):
         }
         result = dockletRequest.post("/image/delete/", data)
         if(result):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             self.error()
 
@@ -267,7 +302,7 @@ class addproxyView(normalView):
         }
         result = dockletRequest.post("/addproxy/", data)
         if(result):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             self.error()
 
@@ -280,7 +315,7 @@ class deleteproxyView(normalView):
         }
         result = dockletRequest.post("/deleteproxy/", data)
         if(result):
-            return configView.as_view()
+            return redirect("/config/")
         else:
             self.error()
 
@@ -299,7 +334,40 @@ class configView(normalView):
             data["clustername"] = cluster
             result = dockletRequest.post("/cluster/info/",data).get("message")
             clusters_info[cluster] = result
-        return self.render("config.html", images = images, clusters = clusters_info, mysession=dict(session))
+        result = dockletRequest.post("/user/usageQuery/")
+        quota = result.get("quota")
+        usage = result.get("usage")
+        default = result.get("default")
+        restcpu = int(quota['cpu']) - int(usage['cpu'])
+        restmemory = int(quota['memory']) - int(usage['memory'])
+        restdisk = int(quota['disk']) - int(usage['disk'])
+        if restcpu >= int(default['cpu']):
+            defaultcpu = default['cpu']
+        elif restcpu <= 0:
+            defaultcpu = "0"
+        else:
+            defaultcpu = str(restcpu)
+
+        if restmemory >= int(default['memory']): 
+            defaultmemory = default['memory']
+        elif restmemory <= 0:
+            defaultmemory = "0"
+        else:
+            defaultmemory = str(restmemory)
+
+        if restdisk >= int(default['disk']):
+            defaultdisk = default['disk']
+        elif restdisk <= 0:
+            defaultdisk = "0"
+        else:
+            defaultdisk = str(restdisk)
+        
+        defaultsetting = {
+                'cpu': defaultcpu,
+                'memory': defaultmemory,
+                'disk': defaultdisk
+                }
+        return self.render("config.html", images = images, clusters = clusters_info, mysession=dict(session), quota = quota, usage = usage, defaultsetting = defaultsetting)
 
     @classmethod
     def post(self):

@@ -1,30 +1,26 @@
 #!/bin/bash
 
-function usage
-{
-cat <<EOF 
-usage: ./etcd-multi-nodes.sh [[--discovery discovery_url] [--network_device eth1] [-h]]
-discovery_url can be get by:
-    curl -w "\n" 'https://discovery.etcd.io/new?size=2'
-note: change the size of etcd cluster
-EOF
-}
 
-[[ $# -eq 0 ]] && usage && exit 1
-while [ "$1" != "" ]; do
-    case $1 in
-	-d | --discovery )      shift
-				cluster_url=$1
-				;;
-	-n | --network_device ) shift
-	                        network_device=$1
-	                        ;;
-	-h | --help )           usage
-				exit
-				;;
-	* )                     usage
-				exit 1
-    esac
+# more details for https://coreos.com/etcd/docs/latest
+
+which etcd &>/dev/null || { echo "etcd not installed, please install etcd first" && exit 1; }
+
+if [ $# -eq 0 ] ; then
+    echo "Usage: `basename $0` ip1 ip2 ip3"
+    echo "    ip1 ip2 ip3 are the ip address of node etcd_1 etcd_2 etcd_3"
+    exit 1
+fi
+
+etcd_1=$1
+index=1
+while [ $# -gt 0 ] ; do
+    h="etcd_$index" 
+    if [ $index -eq 1 ] ; then
+        CLUSTER="$h=http://$1:2380"
+    else
+        CLUSTER="$CLUSTER,$h=http://$1:2380"
+    fi 
+    index=$(($index+1))
     shift
 done
 
@@ -41,6 +37,7 @@ hostip=$(ifconfig $network_device | grep "inet addr" | cut -d ':' -f 2 | cut -d 
 # -initial-cluster-state        :  new means join a new cluster; existing means join an existing cluster
 #                               :  new not means clear 
 
+<<<<<<< HEAD
 
 etcd --name $hostname \
      --initial-advertise-peer-urls http://$hostip:2380 \
@@ -49,3 +46,13 @@ etcd --name $hostname \
      --advertise-client-urls http://$hostip:2379 \
      --discovery $cluster_url \
      --initial-cluster-state new &
+=======
+etcd --name etcd_1 \
+     --initial-advertise-peer-urls http://$etcd_1:2380 \
+     --listen-peer-urls http://$etcd_1:2380 \
+     --listen-client-urls http://$etcd_1:2379 \
+     --advertise-client-urls http://$etcd_1:2379 \
+     --initial-cluster-token etcd-cluster \
+     --initial-cluster $CLUSTER \
+     --initial-cluster-state new 
+>>>>>>> fab8ab478995fd60402b77cf632599780896963c

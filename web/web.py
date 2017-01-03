@@ -4,6 +4,8 @@ import os
 import getopt
 
 import sys, inspect
+
+
 this_folder = os.path.realpath(os.path.abspath(os.path.split(inspect.getfile(inspect.currentframe()))[0]))
 src_folder = os.path.realpath(os.path.abspath(os.path.join(this_folder,"..", "src")))
 if src_folder not in sys.path:
@@ -21,6 +23,8 @@ from webViews.log import logger
 from flask import Flask, request, session, render_template, redirect, send_from_directory, make_response, url_for, abort
 from webViews.dashboard import dashboardView
 from webViews.user.userlist import userlistView, useraddView, usermodifyView, userdataView, userqueryView
+from webViews.notification.notification import CreateNotificationView, NotificationView, QuerySelfNotificationsView, \
+    QueryNotificationView, ModifyNotificationView, DeleteNotificationView
 from webViews.user.userinfo import userinfoView
 from webViews.user.userActivate import userActivateView
 from webViews.user.grouplist import grouplistView, groupqueryView, groupdetailView, groupmodifyView
@@ -29,6 +33,7 @@ from webViews.dockletrequest import dockletRequest
 from webViews.cluster import *
 from webViews.admin import *
 from webViews.monitor import *
+from webViews.beansapplication import *
 from webViews.authenticate.auth import login_required, administration_required,activated_required
 from webViews.authenticate.register import registerView
 from webViews.authenticate.login import loginView, logoutView
@@ -238,6 +243,12 @@ def deleteImage(image):
     deleteImageView.image = image
     return deleteImageView.as_view()
 
+@app.route("/image/updatebase/<image>/", methods=['GET'])
+@login_required
+def updatebaseImage(image):
+    updatebaseImageView.image = image
+    return updatebaseImageView.as_view()
+
 @app.route("/hosts/", methods=['GET'])
 @administration_required
 def hosts():
@@ -266,6 +277,18 @@ def statusRealtime(vcluster_name,node_name):
     statusRealtimeView.node_name = node_name
     return statusRealtimeView.as_view()
 
+@app.route("/history/", methods=['GET'])
+#@login_required
+def history():
+    return historyView.as_view()
+
+
+@app.route("/history/<vnode_name>/", methods=['GET'])
+@login_required
+def historyVNode(vnode_name):
+    historyVNodeView.vnode_name = vnode_name
+    return historyVNodeView.as_view()
+
 @app.route("/monitor/hosts/<comid>/<infotype>/", methods=['POST'])
 @app.route("/monitor/vnodes/<comid>/<infotype>/", methods=['POST'])
 @login_required
@@ -276,13 +299,32 @@ def monitor_request(comid,infotype):
     result = dockletRequest.post(request.path, data)
     return json.dumps(result)
 
+@app.route("/beans/application/", methods=['GET'])
+@login_required
+def beansapplication():
+    return beansapplicationView.as_view()
+
+@app.route("/beans/apply/", methods=['POST'])
+@login_required
+def beansapply():
+    return beansapplyView.as_view()
+
+@app.route("/beans/admin/<msgid>/<cmd>/", methods=['GET'])
+@login_required
+@administration_required
+def beansadmin(msgid,cmd):
+    beansadminView.msgid = msgid
+    if cmd == "agree" or cmd == "reject":
+        beansadminView.cmd = cmd
+        return beansadminView.as_view()
+    else:
+        return redirect("/user/list/")
+
 '''@app.route("/monitor/User/", methods=['GET'])
 @administration_required
 def monitorUserAll():
     return monitorUserAllView.as_view()
 '''
-
-
 
 @app.route("/user/list/", methods=['GET', 'POST'])
 @administration_required
@@ -324,6 +366,11 @@ def useradd():
 def usermodify():
     return usermodifyView.as_view()
 
+@app.route("/user/change/", methods=['POST'])
+@administration_required
+def userchange():
+    return usermodifyView.as_view()
+
 @app.route("/quota/add/", methods=['POST'])
 @administration_required
 def quotaadd():
@@ -333,6 +380,11 @@ def quotaadd():
 @administration_required
 def chdefault():
     return chdefaultView.as_view()
+
+@app.route("/quota/chlxcsetting/", methods=['POST'])
+@administration_required
+def chlxcsetting():
+    return chlxcsettingView.as_view()
 
 @app.route("/group/add/", methods=['POST'])
 @administration_required
@@ -354,6 +406,43 @@ def userinfo():
 @administration_required
 def userquery():
     return userqueryView.as_view()
+
+
+@app.route("/notification/", methods=['GET'])
+@administration_required
+def notification_list():
+    return NotificationView.as_view()
+
+
+@app.route("/notification/create/", methods=['GET', 'POST'])
+@administration_required
+def create_notification():
+    return CreateNotificationView.as_view()
+
+
+@app.route("/notification/modify/", methods=['POST'])
+@administration_required
+def modify_notification():
+    return ModifyNotificationView.as_view()
+
+
+@app.route("/notification/delete/", methods=['POST'])
+@administration_required
+def delete_notification():
+    return DeleteNotificationView.as_view()
+
+
+@app.route("/notification/query_self/", methods=['POST'])
+@login_required
+def query_self_notifications():
+    return QuerySelfNotificationsView.as_view()
+
+
+@app.route("/notification/detail/<notify_id>/", methods=['GET'])
+@login_required
+def query_notification_detail(notify_id):
+    return QueryNotificationView.get_by_id(notify_id)
+
 
 @app.route("/system/modify/", methods=['POST'])
 @administration_required
@@ -440,6 +529,7 @@ def not_authorized(error):
 
 @app.errorhandler(500)
 def internal_server_error(error):
+    logger.error(error)
     if "username" in session:
         if "500" in session and "500_title" in session:
             reason = session['500']
@@ -500,4 +590,4 @@ if __name__ == '__main__':
         elif opt in ("-p", "--port"):
             webport = int(arg)
 
-    app.run(host = webip, port = webport, threaded=True)
+    app.run(host = webip, port = webport, threaded=True,)

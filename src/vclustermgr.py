@@ -51,8 +51,37 @@ class VclusterMgr(object):
                 logger.info ("recovering cluster:%s for user:%s ..." % (cluster, user))
                 self.recover_cluster(cluster, user)
         logger.info("recovered all vclusters for all users")
+    
+    def mount_allclusters(self):
+        logger.info("mounting all vclusters for all users...")
+        usersdir = self.fspath+"/global/users/"
+        for user in os.listdir(usersdir):
+            for cluster in self.list_clusters(user)[1]:
+                logger.info ("mounting cluster:%s for user:%s ..." % (cluster, user))
+                self.mount_cluster(cluster, user)
+        logger.info("mounted all vclusters for all users")
 
-    def create_cluster(self, clustername, username, image, user_info,cluster_size,container_size, bidprice):
+
+    def stop_allclusters(self):
+        logger.info("stopping all vclusters for all users...")
+        usersdir = self.fspath+"/global/users/"
+        for user in os.listdir(usersdir):
+            for cluster in self.list_clusters(user)[1]:
+                logger.info ("stopping cluster:%s for user:%s ..." % (cluster, user))
+                self.stop_cluster(cluster, user)
+        logger.info("stopped all vclusters for all users")
+    
+    def detach_allclusters(self):
+        logger.info("detaching all vclusters for all users...")
+        usersdir = self.fspath+"/global/users/"
+        for user in os.listdir(usersdir):
+            for cluster in self.list_clusters(user)[1]:
+                logger.info ("detaching cluster:%s for user:%s ..." % (cluster, user))
+                self.detach_cluster(cluster, user)
+        logger.info("detached all vclusters for all users")
+     
+    def create_cluster(self, clustername, username, image, user_info, setting, bidprice):
+
         if self.is_cluster(clustername, username):
             return [False, "cluster:%s already exists" % clustername]
         clustersize = int(self.defaultsize)
@@ -102,6 +131,7 @@ class VclusterMgr(object):
             lxc_name = username + "-" + str(clusterid) + "-" + str(i)
             hostname = "host-"+str(i)
             logger.info ("create container with : name-%s, username-%s, clustername-%s, clusterid-%s, hostname-%s, ip-%s, gateway-%s, image-%s" % (lxc_name, username, clustername, str(clusterid), hostname, ips[i], gateway, image_json))
+<<<<<<< HEAD
 
             configuration = {
                 'lxc_name': lxc_name,
@@ -123,13 +153,20 @@ class VclusterMgr(object):
             
             [success,message] = onework.create_container(configuration)
             
+=======
+            [success,message] = onework.create_container(lxc_name, username, json.dumps(setting) , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json)
+>>>>>>> fab8ab478995fd60402b77cf632599780896963c
             if success is False:
                 logger.info("container create failed, so vcluster create failed")
                 return [False, message]
             logger.info("container create success")
             hosts = hosts + ips[i].split("/")[0] + "\t" + hostname + "\t" + hostname + "."+clustername + "\n"
+<<<<<<< HEAD
             containers.append({ 'containername':lxc_name, 'hostname':hostname, 'ip':ips[i], 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") })
             
+=======
+            containers.append({ 'containername':lxc_name, 'hostname':hostname, 'ip':ips[i], 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'setting': setting })
+>>>>>>> fab8ab478995fd60402b77cf632599780896963c
         hostfile = open(hostpath, 'w')
         hostfile.write(hosts)
         hostfile.close()
@@ -140,7 +177,7 @@ class VclusterMgr(object):
         clusterfile.close()
         return [True, info]
 
-    def scale_out_cluster(self,clustername,username,image,user_info):
+    def scale_out_cluster(self,clustername,username,image,user_info, setting):
         if not self.is_cluster(clustername,username):
             return [False, "cluster:%s not found" % clustername]
         workers = self.nodemgr.get_rpcs()
@@ -163,7 +200,7 @@ class VclusterMgr(object):
         onework = workers[random.randint(0, len(workers)-1)]
         lxc_name = username + "-" + str(clusterid) + "-" + str(cid)
         hostname = "host-" + str(cid)
-        [success, message] = onework.create_container(lxc_name, username, user_info, clustername, clusterid, str(cid), hostname, ip, gateway, str(vlanid), image_json)
+        [success, message] = onework.create_container(lxc_name, username, json.dumps(setting), clustername, clusterid, str(cid), hostname, ip, gateway, str(vlanid), image_json)
         if success is False:
             logger.info("create container failed, so scale out failed")
             return [False, message]
@@ -176,7 +213,7 @@ class VclusterMgr(object):
         hostfile.close()
         clusterinfo['nextcid'] = int(clusterinfo['nextcid']) + 1
         clusterinfo['size'] = int(clusterinfo['size']) + 1
-        clusterinfo['containers'].append({'containername':lxc_name, 'hostname':hostname, 'ip':ip, 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") })
+        clusterinfo['containers'].append({'containername':lxc_name, 'hostname':hostname, 'ip':ip, 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'setting': setting})
         clusterfile = open(clusterpath, 'w')
         clusterfile.write(json.dumps(clusterinfo))
         clusterfile.close()
@@ -364,6 +401,15 @@ class VclusterMgr(object):
         infofile.close()
         return [True, "start cluster"]
 
+    def mount_cluster(self, clustername, username):
+        [status, info] = self.get_clusterinfo(clustername, username)
+        if not status:
+            return [False, "cluster not found"]
+        for container in info['containers']:
+            worker = self.nodemgr.ip_to_rpc(container['host'])
+            worker.mount_container(container['containername'])
+        return [True, "mount cluster"]
+
     def recover_cluster(self, clustername, username):
         [status, info] = self.get_clusterinfo(clustername, username)
         if not status:
@@ -400,7 +446,18 @@ class VclusterMgr(object):
         infofile = open(self.fspath+"/global/users/"+username+"/clusters/"+clustername, 'w')
         infofile.write(json.dumps(info))
         infofile.close()
-        return [True, "start cluster"]
+        return [True, "stop cluster"]
+    
+    def detach_cluster(self, clustername, username):
+        [status, info] = self.get_clusterinfo(clustername, username)
+        if not status:
+            return [False, "cluster not found"]
+        if info['status'] == 'running':
+            return [False, 'cluster is running, please stop it first']
+        for container in info['containers']:
+            worker = self.nodemgr.ip_to_rpc(container['host'])
+            worker.detach_container(container['containername'])
+        return [True, "detach cluster"]
 
     def list_clusters(self, user):
         if not os.path.exists(self.fspath+"/global/users/"+user+"/clusters"):
