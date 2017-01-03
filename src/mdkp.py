@@ -1,19 +1,22 @@
+# coding=UTF-8
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+
 import copy
 import math
 import random
 import numpy as np
-from numpy.linalg import cholesky
-import matplotlib.pyplot as plt
+import time
 
 class Colony:
 
     alpha = 1
     beta = 3
-    rho = 0.5
+    rho = 0.1
     xi = 0.1
-    q0 = 0.8
+    q0 = 0.5
     
-    def __init__(self,tasks,ant_count = 10 ,cpus = 64,mems= 256,ratio_terms=2, stop_terms=8):
+    def __init__(self,tasks,ant_count = 10 ,cpus = 64,mems= 256,ratio_terms=1, stop_terms=8):
         self.ant_count = ant_count
         self.cpus = cpus
         self.mems = mems
@@ -73,12 +76,12 @@ class Colony:
         self.current_sum = self.default_sum
         self.current_cpus = tmp_cpus
         self.current_mems = tmp_mems
-        self.default_pheromone = 1 / self.default_sum
+        self.default_pheromone = 1 / float(self.default_sum)
         
         for key,task in self.tasks.items():
             task['pheromone'] = self.default_pheromone
             task['choice'] = (task['heuristic']**Colony.alpha)*(task['pheromone']** Colony.beta)
-            #print("task: ",task)
+#            print("task: ",task)
             
     def init_choice(self):
         global tasks
@@ -229,13 +232,13 @@ class Colony:
             sum_choice += task['choice']
             
         sorted_tasks = sorted(self.tasks.values(), key = lambda k: k['choice'], reverse = True)
-        #print(sorted_tasks)
+#        print("sorted: ",sorted_tasks)
         
         while len(sorted_tasks)>0:
             q1 = np.random.uniform(0,1)
-    #        print("ran: ", q1)
+#            print("ran: ", q1)
             if q1 <= Colony.q0:
-    #            print("best choose")
+#                print("best choose",sorted_tasks[0])
                 if ant['cpus'] + sorted_tasks[0]['cpus'] <= self.cpus and ant['mems'] + sorted_tasks[0]['mems'] <= self.mems:
                     ant['cpus'] += sorted_tasks[0]['cpus']
                     ant['mems'] += sorted_tasks[0]['mems']
@@ -248,7 +251,9 @@ class Colony:
                     task_id = sorted_tasks[0]['id']
                     task_pheromone = sorted_tasks[0]['pheromone']
                     self.tasks[task_id]['pheromone'] = (1-Colony.xi)*task_pheromone + Colony.xi * self.default_pheromone
-    
+
+                    # 从sum_choice中减去这个
+                    sum_choice -= sorted_tasks[0]['choice']
                     del sorted_tasks[0]
     
                 else:
@@ -260,7 +265,7 @@ class Colony:
                 for i in range(0,len(sorted_tasks)):
                     tmp_range += sorted_tasks[i]['choice']
                     if ran <= tmp_range:
-    #                    print("roulette choose")
+#                        print("roulette choose: ",sorted_tasks[i])
                         chosen = i
                         break
     
@@ -274,17 +279,18 @@ class Colony:
                     task_id = sorted_tasks[chosen]['id']
                     task_pheromone = sorted_tasks[chosen]['pheromone']
                     self.tasks[task_id]['pheromone'] = (1-Colony.xi)*task_pheromone + Colony.xi * self.default_pheromone
-    
+
                     del sorted_tasks[chosen]
-    
-#        print("ant ", ant_index, " sum: ", ant['sum'])
+                else:
+                    break
+#            print("ant ", ant_index, " sum: ", ant['sum'])
     
     
     def update_choice(self):
         
         for t_id in self.current_solution:
             old_pheromone = self.tasks[t_id]['pheromone']
-            new_pheromone = (1-Colony.rho) * old_pheromone + Colony.rho * self.current_sum** 1/ (self.default_sum**2)
+            new_pheromone = (1-Colony.rho) * old_pheromone + Colony.rho * self.current_sum * 1/ (self.default_sum**2)
             self.tasks[t_id]['pheromone'] = new_pheromone
     
     def update_price_ratio(self):
@@ -299,7 +305,8 @@ class Colony:
         ratio_great_index = 0
         stop_index = 0
         while not self.tasks and not self.tasks_to_add:
-            time.sleep(0.1)
+            print("no tasks")
+ #           time.sleep(0.1)
 
         if self.tasks_to_add:
             self.change_tasks()
@@ -342,13 +349,12 @@ class Colony:
             if ratio_great_index > 0:
                 if left_ratio >= self.price_ratio:
                     if ratio_great_index >= self.ratio_terms:
-                        # increase_price_ratio()
                         #price_ratio += 1
                         if left_ratio > 1000:
                             self.price_ratio = 1000
                         else:
                             self.price_ratio = left_ratio
-    #                    print("price_ratio increase")
+#                        print("price_ratio increase")
                         self.update_price_ratio()
                         ratio_great_index = 0
                     else:
@@ -359,10 +365,9 @@ class Colony:
             elif ratio_less_index > 0:
                 if left_ratio <= self.price_ratio:
                     if ratio_less_index >= self.ratio_terms:
-                        # decrease_price_ratio()
-                        #self.price_ratio -= 1
+                            #self.price_ratio -= 1
                         self.price_ratio = left_ratio
-    #                    print("price_ratio decreased")
+#                        print("price_ratio decreased")
                         self.update_price_ratio()
                         ratio_great_index = 0
                     else:
@@ -376,7 +381,7 @@ class Colony:
                 else:
                     ratio_great_index +=1
     
-#        print("current: ",self.current_sum)
+        print("current: ",self.current_sum)
     
     def aco():
         global stop_index
@@ -453,12 +458,12 @@ class Colony:
         return opt[self.cpus][self.mems]
         
 def generate_test_data(cpu,mem):
-    cpu_arr = np.random.binomial(cpu, 1/16, cpu*2)
-    mem_arr = np.random.binomial(mem, 1/32, mem*2)
-#    cpu_arr = np.random.uniform(1,cpu,cpu*2)
-#    mem_arr = np.random.uniform(1,mem,cpu*2)
-    prices = np.random.uniform(1,100,cpu*2)
     tasks = {}
+#    cpu_arr = np.random.binomial(cpu, 1/16, cpu*2)
+#    mem_arr = np.random.binomial(mem, 1/32, mem*2)
+    cpu_arr = np.random.uniform(1,cpu,cpu*2)
+    mem_arr = np.random.uniform(1,mem,cpu*2)
+    prices = np.random.uniform(1,100,cpu*2)
     for i in range(0,cpu*2):
         if cpu_arr[i]==0 or mem_arr[i] ==0:
             continue
@@ -497,7 +502,7 @@ def test2():
     aco_fast_opt = 0
     dp_time = 0
     aco_time = 0
-    for i in range(0,1000):
+    for i in range(0,1):
         tasks = generate_test_data(64,256)
         colony = Colony(tasks)
         colony.initiation()
@@ -515,7 +520,10 @@ def test2():
     print("time used: ", dp_time, aco_time, dp_time/aco_time)
 
 def test3():
-    return
+    tasks = generate_test_data(64,256)
+    colony = Colony(tasks)
+    colony.aco_fast()
+
 
 if __name__ == '__main__':
     test2()

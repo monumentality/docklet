@@ -1,0 +1,4 @@
+maximize    \sum_{i=1}^{m}\sum_{j=1}^{n}p_{j}x_{ij}  \\
+subject to: \sum_{j=1}w_{jk}x_{ij} \leq c_{ik}  \qquad      i=1,...,m; k=1,2,...,d \\
+            \sum_{i=1}^{m}x_{ij} \leq 1 \qquad               j=1,...,n \\
+            x_{ij} \in {0,1} \qquad                          \forall i \forall j \\

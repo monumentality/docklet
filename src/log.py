@@ -68,3 +68,28 @@ class RedirectLogger(object):
     def flush(self):
         for handler in self.logger.handlers:
             handler.flush()
+
+
+
+
+def init_slogger():
+
+    slogger = logging.getLogger("scheduler")
+    slogger.setLevel(logging.DEBUG)
+
+    info_fh = logging.FileHandler('scheduler.log')
+    info_fh.setLevel(logging.INFO)
+
+    debug_sh = logging.StreamHandler(sys.stdout)
+    debug_sh.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    info_fh.setFormatter(formatter)
+    debug_sh.setFormatter(formatter)
+
+#    slogger.addHandler(info_fh)
+    slogger.addHandler(debug_sh)
+
+init_slogger()
+
+slogger = logging.getLogger("scheduler")

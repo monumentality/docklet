@@ -1,20 +1,31 @@
+# coding=UTF-8
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+
 import math
 import random
 import numpy as np
 from mdkp import Colony
-from bidscheduler4 import AllocationOfMachine
+from machine import AllocationOfMachine
 import heapq
-
+from connection import *
+import time
+import thread
 
 task_queue = []
 
-machines = []
+machine_queue = []
 
 tasks = {}
 
-def generate_test_tasks(cpu,mem,machines):
+machines = {}
+
+def get_machines():
+    global machines
+    return machines
+
+def generate_test_data(cpu,mem,machines):
     global tasks
-    tasks = {}
 #    cpus = np.random.binomial(test_cpus, test_cpus/16, test_cpus*2)
 #    mems = np.random.binomial(test_mems, test_mems/16, test_mems*2)
     cpu_arr = np.random.uniform(1,cpu,cpu*machines)
@@ -26,19 +37,42 @@ def generate_test_tasks(cpu,mem,machines):
 
         task = {
             'id': str(i),
-            'cpus': math.floor(cpu_arr[i]),
-            'mems': math.floor(mem_arr[i]),
-            'price': int(prices[i])
+            'cpus': int(math.floor(cpu_arr[i])),
+            'mems': int(math.floor(mem_arr[i])),
+            'price': int(prices[i]),
+            'allocated': "none"
         }
         key = str(i)
-        
-        tasks[key] = task    
+        tasks[key] = task
     #    print(task)
-    return tasks
+    # write to a file
+    with open('uniform_tasks.txt','w') as f:
+        for key, task in tasks.items():
+            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['price'])+'\n')
+
+def parse_test_data(filename,cpus,mems,machines):
+    global tasks
+    with open(filename,'r') as f:
+        i =0
+        for line in f.readlines()[0:cpus*machines]:
+            arr = line.split()
+            task = {
+                'id': str(i),
+                'cpus': float(arr[0]),
+                'mems': float(arr[1]),
+                'price': int(arr[2])
+            }
+            key = str(i)
+            tasks[key] = task
+            i+=1
+            print(task)
+
 
 def init_machines(cpus,mems,num):
     global machines
-    machines = []
+    global machine_queue
+    machine_queue = []
+
     for i in range(0,num):
         machine = AllocationOfMachine()
         machine.machineid = str(i)
@@ -47,13 +81,28 @@ def init_machines(cpus,mems,num):
         machine.colony = Colony({},cpus=cpus,mems=mems)
         machine.tasks = {}
         machine.total_value = 0
+
+        machine.cpus_wanted = 0
+        machine.mems_wanted = 0
+
+        # init allocation data
+        machine.reliable_allocations = []
+        machine.restricted_allocations = []
+
+        machines[str(i)] = machine
+
         # to-do:改成多线程，直接运行每个线程
         # machine.colony.run()
+        send_colony("create",machine.machineid, str(machine.cpus), str(machine.mems))
 
-        heapq.heappush(machines,machine)
+
+        heapq.heappush(machine_queue,machine)
+
 
 # 从task_queue中取出最大的，从machines中取出最小的，放置
 def dispatch(tasks):
+    print("dispatch")
+
     for key,task in tasks.items():
         price = int(0 - task['price'])
         heapq.heappush(task_queue,(price,task['id'],task))
@@ -61,10 +110,15 @@ def dispatch(tasks):
     # the following is only for test
     while task_queue:
         neg_price,id, task = heapq.heappop(task_queue)
-        machine = heapq.heappop(machines)
-        machine.add_task(task)
+        print("pop task: ",id)
+        machine = heapq.heappop(machine_queue)
 
-        heapq.heappush(machines,machine)
+        machine.add_reliable_task(task)
+
+        print("pop machine: id = ", machine.machineid)
+        send_task(machine,task,"add")
+
+        heapq.heappush(machine_queue,machine)
 
 
 def mdp(tasks,cpus,mems):
@@ -108,31 +162,26 @@ def relax_mdp(tasks,cpus,mems,machines):
             for k in range(mems,i_mem-1, -1):
                 #                print(j,k)
                 opt[j][k] = max(opt[j][k],opt[j-i_cpu][k-i_mem]+price)
-    
+
     #    print(opt)
     print("relax opt: ",opt[cpus][mems])
     return opt[cpus][mems]
-    
-if __name__ == '__main__':
 
+def test3():
     relax = 0
     exact = 0
-    aco  = 0 
+    aco  = 0
     for i in range(0,1):
-        
-        tasks = generate_test_tasks(16,64,1000)
-#        relax += relax_mdp(tasks,16,64,10)
-#        exact += mdp(tasks,16,64)
-        
-        init_machines(16,64,1000)
+        parse_test_data('uniform_tasks.txt',64,256,20)
+
+        init_machines(64,256,20)
         dispatch(tasks)
-        
+
         aco_fast_result = 0
-        for machine in machines:
+        for machine in machine_queue:
             machine.colony.aco_fast()
             #machine.colony.exact()
             aco_fast_result += machine.colony.current_sum
-            
             print("aco fast result: ",aco_fast_result)
 
         aco += aco_fast_result
@@ -141,4 +190,34 @@ if __name__ == '__main__':
 #    print("aco/exact: ", aco/exact)
 #    print("aco/relax: ", aco/relax)
     print("aco: ",aco)
-    
+
+def start_mmdkp():
+    #启动c程序，添加新进程
+    return
+
+def test_mmdkp():
+
+    generate_test_data(64,256,3)
+
+    init_colony_socket()
+    init_task_socket()
+    init_result_socket()
+
+    init_machines(64, 256, 3)
+
+    sync_colonies(3);
+
+    thread.start_new_thread(recv_result,(machines,))
+
+    dispatch(tasks);
+
+    while(True):
+        print("sleep 1s")
+        time.sleep(1)
+
+#    recv_result(machines);
+
+if __name__ == '__main__':
+#    test_pub_socket();
+#    test_colony_socket();
+    test_mmdkp();
