@@ -22,12 +22,12 @@ all: clean acomdkp
 clean:
 	@$(RM) *.o acomdkp
 
-test: utilities.o colony.o task.o knapsack.o connection.o mmdkp.o test.o
+test: utilities.o colony.o task.o connection.o mmdkp.o test.o
 	${CC} -o $@ $^ ${CFLAGS}
 
 test.o: test.c
 
-acomdkp: acomdkp.o utilities.o colony.o task.o kanpsack.o
+acomdkp: acomdkp.o utilities.o colony.o task.o
 
 acomdkp.o: acomdkp.c
 	${CC} -o $@ $^ ${CFLAGS}
@@ -37,8 +37,6 @@ utilities.o: utilities.c utilities.h
 colony.o: colony.c colony.h
 
 task.o: task.c task.h
-
-knapsack.o: knapsack.c knapsack.h
 
 connection.o: connection.c connection.h
 
