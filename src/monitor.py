@@ -291,33 +291,36 @@ class Container_Collector(threading.Thread):
         cpu_parts = re.split(' +',info['CPU use'])
         cpu_val = float(cpu_parts[0].strip())
         cpu_unit = cpu_parts[1].strip()
+
         if not container_name in self.cpu_last.keys():
-            # read quota from config of container
-            confpath = "/var/lib/lxc/%s/config"%(container_name)
-            if os.path.exists(confpath):
-                confile = open(confpath,'r')
-                res = confile.read()
-                lines = re.split('\n',res)
-                for line in lines:
-                    words = re.split('=',line)
-                    key = words[0].strip()
-                    if key == "lxc.cgroup.memory.limit_in_bytes":
-                        # get memory quota, change unit to KB
-                        self.mem_quota[container_name] = float(words[1].strip().strip("M"))*1000000/1024
-                    elif key == "lxc.cgroup.cpu.cfs_quota_us":
-                        # get cpu quota, change unit to cores
-                        tmp = int(words[1].strip())
-                        if tmp < 0:
-                            self.cpu_quota[container_name] = self.cores_num
-                        else:
-                            self.cpu_quota[container_name] = tmp/100000.0
-                quota = {'cpu':self.cpu_quota[container_name],'memory':self.mem_quota[container_name]}
-                #logger.info(quota)
-                workercinfo[container_name]['quota'] = quota
-            else:
-                logger.error("Cant't find config file %s"%(confpath))
-                return False
             self.cpu_last[container_name] = 0
+
+        # read quota from config of container
+        confpath = "/var/lib/lxc/%s/config"%(container_name)
+        if os.path.exists(confpath):
+            confile = open(confpath,'r')
+            res = confile.read()
+            lines = re.split('\n',res)
+            for line in lines:
+                words = re.split('=',line)
+                key = words[0].strip()
+                if key == "lxc.cgroup.memory.limit_in_bytes":
+                    # get memory quota, change unit to KB
+                    self.mem_quota[container_name] = float(words[1].strip().strip("M"))*1024
+                elif key == "lxc.cgroup.cpu.shares":
+                    # get cpu quota, change unit to cores
+                    tmp = int(words[1].strip())
+                    if tmp < 0:
+                        self.cpu_quota[container_name] = self.cores_num
+                    else:
+                        self.cpu_quota[container_name] = tmp/1000.0
+            quota = {'cpu':self.cpu_quota[container_name],'memory':self.mem_quota[container_name]}
+            #logger.info(quota)
+            workercinfo[container_name]['quota'] = quota
+        else:
+            logger.error("Cant't find config file %s"%(confpath))
+            return False
+            
         # compute cpu used percent 
         cpu_use = {}
         lastval = 0

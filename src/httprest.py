@@ -23,7 +23,6 @@ import os
 import http.server, cgi, json, sys, shutil
 from socketserver import ThreadingMixIn
 
-import bidscheduler
 
 import nodemgr, vclustermgr, etcdlib, network, imagemgr, notificationmgr
 import userManager,beansapplicationmgr
@@ -31,7 +30,7 @@ import userManager,beansapplicationmgr
 import monitor,traceback
 import threading
 import sysmgr
-
+import dscheduler
 
 #default EXTERNAL_LOGIN=False
 external_login = env.getenv('EXTERNAL_LOGIN')
@@ -201,15 +200,9 @@ def create_cluster(cur_user, user, form):
     user_info = G_usermgr.selfQuery(cur_user = cur_user)
     user_info = json.dumps(user_info)
 
+    bid = form.get("bid")
     logger.info ("handle request : create cluster %s with image %s " % (clustername, image['name']))
-<<<<<<< HEAD
-    [status, result] = G_vclustermgr.create_cluster(clustername, user,
-                                                    image,
-                                                    user_info,
-                                                    form.get("cluster_size"),
-                                                    form.get("container_size"),
-                                                    form.get("bidprice"))
-=======
+
     setting = {
             'cpu': form.get('cpuSetting'),
             'memory': form.get('memorySetting'),
@@ -218,8 +211,8 @@ def create_cluster(cur_user, user, form):
     [status, result] = G_usermgr.usageInc(cur_user = cur_user, modification = setting)
     if not status:
         return json.dumps({'success':'false', 'action':'create cluster', 'message':result})
-    [status, result] = G_vclustermgr.create_cluster(clustername, user, image, user_info, setting)
->>>>>>> fab8ab478995fd60402b77cf632599780896963c
+    [status, result] = G_vclustermgr.create_cluster(clustername, user, image, user_info, setting, bid)
+
     if status:
         return json.dumps({'success':'true', 'action':'create cluster', 'message':result})
     else:
@@ -248,10 +241,11 @@ def scaleout_cluster(cur_user, user, form):
             'memory': form.get('memorySetting'),
             'disk': form.get('diskSetting')
             }
+    bid = form.get('bid')
     [status, result] = G_usermgr.usageInc(cur_user = cur_user, modification = setting)
     if not status:
         return json.dumps({'success':'false', 'action':'scale out', 'message': result})
-    [status, result] = G_vclustermgr.scale_out_cluster(clustername, user, image, user_info, setting)
+    [status, result] = G_vclustermgr.scale_out_cluster(clustername, user, image, user_info, setting, bid)
     if status:
         return json.dumps({'success':'true', 'action':'scale out', 'message':result})
     else:
@@ -1084,14 +1078,21 @@ if __name__ == '__main__':
     G_networkmgr = network.NetworkMgr(clusternet, etcdclient, mode)
     G_networkmgr.printpools()
 
+    dscheduler.etcdclient = etcdclient
+    if mode == 'new':
+        dscheduler.init_scheduler()
+    else:
+        dscheduler.recover_scheduler()
+
+    
     # start NodeMgr and NodeMgr will wait for all nodes to start ...
     G_nodemgr = nodemgr.NodeMgr(G_networkmgr, etcdclient, addr = ipaddr, mode=mode)
     logger.info("nodemgr started")
 
-    # import bidscheduler
-    bidscheduler.node_manager = G_nodemgr
-    bidscheduler.init_allocations()
+    # used in scheduler
+    dscheduler.node_manager = G_nodemgr
 
+    
     G_vclustermgr = vclustermgr.VclusterMgr(G_nodemgr, G_networkmgr, etcdclient, ipaddr, mode)
     logger.info("vclustermgr started")
     G_imagemgr = imagemgr.ImageMgr()

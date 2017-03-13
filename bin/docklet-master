@@ -149,6 +149,7 @@ do_stop_master () {
     log_daemon_msg "Stopping $DAEMON_NAME_MASTER daemon"
     start-stop-daemon --stop --quiet --oknodo --remove-pidfile --pidfile $PIDFILE_MASTER --retry 10
     log_end_msg $?
+    kill -9  $(pgrep acommdkp)
 }
 
 do_stop_proxy () {
@@ -211,6 +212,7 @@ case "$1" in
         do_stop_web
         do_stop_proxy
         do_stop_master
+	sleep 3
         do_start_master "new"
         do_start_proxy
         do_start_web

@@ -1,9 +1,14 @@
+#define _XOPEN_SOURCE
+
 #include "utilities.h"
 #include <stdio.h>
 #include <glib.h>
 #include <stdlib.h>
 #include <czmq.h>
 #include "debug.h"
+#include <signal.h>
+
+
 
 int s_interrupted =0;
 
@@ -25,14 +30,14 @@ void s_catch_signals(void){
 
 void free_key(gpointer data)
 {
-  //  printf("hashtable free key: %s \n", data);
+  //  DEBUGC("hashtable free key: %s \n", data);
   free(data);
 
 }
 
 void free_value(gpointer data)
 {
-  //  printf("hashtable free value\n");
+  //  DEBUGC("hashtable free value\n");
   free(data);
 
 }

@@ -5,32 +5,30 @@ CC=gcc
 OPTIM_FLAGS=-O
 WARN_FLAGS=-Wall -ansi -pedantic
 C99_FLAGS=-std=c99
-DEBUGMODE=-DINFOMODE
+DEBUGMODE=-DINFOMODE -DDEBUG_CONNECTION -DDEBUG_ACO
 ZSOCK_NOCHECK=-DZSOCK_NOCHECK
 GLIB_FLAGS=`pkg-config --cflags --libs glib-2.0 libzmq libczmq`
-CFLAGS=$(WARN_FLAGS)  ${GLIB_FLAGS} ${C99_FLAGS} $(ZSOCK_NOCHECK) $(DEBUGMODE) $(OPTIM_FLAGS)
+CFLAGS=$(WARN_FLAGS)  ${GLIB_FLAGS} ${C99_FLAGS} $(ZSOCK_NOCHECK) $(DEBUGMODE) $(OPTIM_FLAGS) -L /lib64
 # To change the default timer implementation, uncomment the line below
 # or call 'make TIMER=unix'
 TIMER=unix
 #TIMER=unix
-LDLIBS=-lm $(shell pkg-config --libs glib-2.0 libzmq libczmq)
+LDLIBS=-lm $(shell pkg-config --libs glib-2.0 libzmq libczmq) -lpthread
 
 .PHONY: all run
 
-all: clean acomdkp
+all: clean acommdkp
 
 clean:
-	@$(RM) *.o acomdkp
+	@$(RM) *.o acommdkp
 
 test: utilities.o colony.o task.o connection.o mmdkp.o test.o
-	${CC} -o $@ $^ ${CFLAGS}
+	${CC} -o $@ $^ ${CFLAGS} ${LDLIBS}
 
 test.o: test.c
 
-acomdkp: acomdkp.o utilities.o colony.o task.o
-
-acomdkp.o: acomdkp.c
-	${CC} -o $@ $^ ${CFLAGS}
+acommdkp: utilities.o colony.o task.o connection.o mmdkp.o test.o
+	${CC} -o $@ $^ ${CFLAGS} ${LDLIBS}
 
 utilities.o: utilities.c utilities.h
 

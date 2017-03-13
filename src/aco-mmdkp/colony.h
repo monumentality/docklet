@@ -5,6 +5,7 @@ typedef struct Ant{
   int mems;
   long result;
   GList *solution;
+  double mem_value;
 } Ant;
 
 typedef struct Colony{
@@ -34,6 +35,7 @@ typedef struct Colony{
   GList *current_solution;
   int current_cpus;
   int current_mems;
+  double current_mem_value;
 
   int initial_result;
   int *initial_solution;

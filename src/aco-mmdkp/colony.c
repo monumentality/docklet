@@ -40,7 +40,8 @@ Colony *init_colony(char *colonyid, GHashTable *tasks,int n_ant,int cpus, int me
   colony->current_cpus = 0;
   colony->current_mems = 0;
   colony->current_solution = NULL;
-
+  colony->current_mem_value = 0;
+  
   colony->default_result = 0;
   colony->default_pheromone =1;
   colony->biggest_pheromone =1;
@@ -171,7 +172,12 @@ void * choose(Colony *colony, int i_ant){
               // 从sum_choice中减去这个的
               sum_choice -= task->choice;
             }
-          else break;
+          else{
+	    // ant->cpu_value equals to the the cpu value of last task which cannot be allocated
+	    ant->mem_value = task->value/ (task->cpus * colony->ratio + task->mems);
+	    DEBUGA("ant %dth mem_value: %e\n", i_ant, ant->mem_value);
+	    break;
+	  }
         }
       // q1<=q0时，轮盘赌
       else
@@ -209,12 +215,16 @@ void * choose(Colony *colony, int i_ant){
               // 从sum_choice中减去这个的
               sum_choice -= chosen->choice;
             }
-          else break;
-
+          else{
+	    // ant->cpu_value equals to the the cpu value of last task which cannot be allocated
+	    ant->mem_value = chosen->value/ (chosen->cpus * colony->ratio + chosen->mems);
+	    DEBUGA("ant %dth mem_value: %e\n", i_ant, ant->mem_value);
+	    break;
+	  }
         }
 
     }
-  DEBUGA("ant %dth reslut: %ld \n",i_ant, ant->result);
+  DEBUGA("ant %dth reslut: %ld, mem_value: %e\n",i_ant, ant->result, ant->mem_value);
   GList * iter_slt = NULL;
 
   for(iter_slt = ant->solution; iter_slt; iter_slt = iter_slt->next ){
@@ -244,6 +254,13 @@ void * roanoke(Colony *colony){
               biggest_result = colony->ants[i]->result;
 
             }
+	  else if(colony->ants[i]->result == biggest_result)
+            {
+	      // change colony->current_cpu_value to the biggest of all ant's cpu_value
+	      if(colony->ants[i]->mem_value > colony->current_mem_value){
+		colony->current_mem_value = colony->ants[i]->mem_value;
+	      }
+            }
           colony->current_result = biggest_result;
         }
       if(result_changed)
@@ -253,6 +270,8 @@ void * roanoke(Colony *colony){
           colony->current_solution = colony->ants[biggest_ant_index]->solution;
           colony->current_cpus = colony->ants[biggest_ant_index]->cpus;
           colony->current_mems = colony->ants[biggest_ant_index]->mems;
+	  
+	  colony->current_mem_value = colony->ants[biggest_ant_index]->mem_value;
 
           colony->stop_index =0;
 
@@ -333,24 +352,24 @@ void *run(Colony *colony){
       if(colony->tasks_changed) {
         colony->stop_index -= 1;
         colony->tasks_changed = 0;
-        sleep(6);
+        sleep(1);
       }
       if(colony->stop_terms > colony->stop_index){
         roanoke(colony);
         colony->result_ready =1;
       }else{
         if(colony->result_ready){
-          INFO("\n colony %s current_result %ld\n", colony->id, colony->current_result);
+          INFO("\n colony %s current_result %ld, mem_value: %e\n", colony->id, colony->current_result,colony->current_mem_value);
 
           send_result(colony);
           colony->result_ready = 0;
         }
         //        DEBUGA("sleep\n");
-        sleep(6);
+        sleep(1);
       }
     }else{
         //        DEBUGA("sleep\n");
-        sleep(6);
+        sleep(1);
     }
   }
 

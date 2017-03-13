@@ -2,7 +2,7 @@
 
 extern int s_interrupted;
 
-void s_signal_handler(int signal_value);
+void s_signal_handler();
 
 void s_catch_signals(void);
 

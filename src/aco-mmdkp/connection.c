@@ -56,12 +56,12 @@ int recv_tasks(Colony *colony){
         task->mems = strtol(mems,NULL,10);
         task->value = strtol(value,NULL,10);
 
-        //        DEBUGC("machine %s add one task: id:%s cpus:%d mems:%d value:%d \n", colony->id,task->id, task->cpus, task->mems, task->value);
+	DEBUGC("machine %s add one task: id:%s cpus:%d mems:%d value:%d \n", colony->id,task->id, task->cpus, task->mems, task->value);
 
         task->heuristic = (double)task->value/(task->cpus * colony->ratio + task->mems);
         task->pheromone = colony->biggest_pheromone;
 
-        g_hash_table_insert(colony->tasks,strdup(id),task);
+        g_hash_table_insert(colony->tasks,task->id,task);
 
         colony->tasks_changed =1;
 
@@ -72,13 +72,22 @@ int recv_tasks(Colony *colony){
 
       }else if(strcmp(oper,"delete")==0){
 
-        //        DEBUGC("machine %s delete one task: id:%s\n", colony->id, id);
+	DEBUGC("machine %s delete one task: id:%s\n", colony->id, id);
         //任务是否变化了
         colony->tasks_changed =1;
         // 修改所有任务的cpu，mem总和，计算是否已满
         colony->cpus_wanted -= strtol(cpus,NULL,10);
-        colony->mems_wanted -= strtol(cpus,NULL,10);
-        if(colony->cpus_wanted < colony->cpus || colony->mems_wanted < colony->mems) colony->is_full =0;
+        colony->mems_wanted -= strtol(mems,NULL,10);
+        if(colony->cpus_wanted <= colony->cpus && colony->mems_wanted <= colony->mems) colony->is_full =0;
+
+	Task *task = g_hash_table_lookup(colony->tasks,id);
+	if(g_list_find(colony->current_solution,task->id)!=NULL){
+	  DEBUGC("task to delete is in solution!\n");
+	  colony->current_result -= task->value;
+	}
+	colony->current_solution = g_list_remove(colony->current_solution, task->id);
+	DEBUGC("delete %s, result change to %ld \n", task->id, colony->current_result);
+	
         g_hash_table_remove(colony->tasks, id);
 
       }else{
@@ -121,28 +130,44 @@ int test_sub(){
 
 int send_result(Colony *colony){
 
-  DEBUGC("send current_solution of machine %s\n",colony->id);
-  // convert current_result to string
-  int result_length = g_list_length(colony->current_solution);
-  char *result = malloc((sizeof(long)+1)*result_length);
+  DEBUGC("send current_solution of machine %s...\n",colony->id);
+  // convert current_solution to string
+  int solution_length = g_list_length(colony->current_solution);
+  char *solution = malloc(20 * solution_length);
   GList *iter = NULL;
   long index =0;
   for(iter = colony->current_solution; iter; iter = iter->next)
     {
       char *id = (char *)(iter->data);
-      index += sprintf(&result[index], "%s ", id);
+      index += sprintf(&solution[index], "%s ", id);
     }
-  result[index-1]='\0';
-  DEBUGC("send current_solution of machine %s: %s$\n", colony->id,result);
+  solution[index-1]='\0';
+  DEBUGC("send current_solution of machine %s: %s$\n", colony->id, solution);
 
+  //convert current_mem_value to string
+  char *mem_value = malloc(32);
+  sprintf(mem_value,"%e", colony->current_mem_value);
+  DEBUGC("send current_mem_value of machine %s: %s$\n", colony->id, mem_value);
+
+  //convert ratio to string
+  char *ratio = malloc(32);
+  sprintf(ratio,"%e", colony->ratio);
+  DEBUGC("send ratio of machine %s: %s$\n", colony->id, ratio);
+  
   // send message
-  zstr_sendm(colony->result_socket,colony->id);
-  zstr_send(colony->result_socket,result);
+  zstr_sendm(colony->result_socket, colony->id);
+  zstr_sendm(colony->result_socket, solution);
+  zstr_sendm(colony->result_socket, mem_value);
+  zstr_send(colony->result_socket, ratio);
+  
 
   char *result_reply = zstr_recv(colony->result_socket);
   DEBUGC("result reply: %s\n",result_reply);
 
   free(result_reply);
-  free(result);
+
+  free(solution);
+  free(mem_value);
+  free(ratio);
   return 0;
 }

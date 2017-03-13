@@ -21,6 +21,9 @@ restricted_queue = []
 
 machine_queue = []
 
+# only used for test
+task_requests = {}
+
 tasks = {}
 
 machines = {}
@@ -28,12 +31,12 @@ machines = {}
 restricted_index = 0
 
 def generate_test_data(cpu,mem,machines,type,id_base):
-    global tasks
+    task_requests = {}
 #    cpus = np.random.binomial(test_cpus, test_cpus/16, test_cpus*2)
 #    mems = np.random.binomial(test_mems, test_mems/16, test_mems*2)
     cpu_arr = np.random.uniform(1,cpu,cpu*machines)
     mem_arr = np.random.uniform(1,mem,cpu*machines)
-    prices = np.random.uniform(1,100,cpu*machines)
+    bids = np.random.uniform(1,100,cpu*machines)
     for i in range(0+id_base,cpu*machines):
         if cpu_arr[i]==0 or mem_arr[i] ==0:
             continue
@@ -42,17 +45,17 @@ def generate_test_data(cpu,mem,machines,type,id_base):
             'id': str(i),
             'cpus': int(math.floor(cpu_arr[i])),
             'mems': int(math.floor(mem_arr[i])),
-            'price': int(prices[i]),
-            'allocated': "none",
-            'type': type
+            'bid': int(bids[i])
         }
         key = str(i)
-        tasks[key] = task
-    #    print(task)
+        task_requests[key] = task
+
     # write to a file
-    with open('uniform_tasks.txt','w') as f:
-        for key, task in tasks.items():
-            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['price'])+'\n')
+#    with open('uniform_tasks.txt','w') as f:
+#        for key, task in tasks.items():
+#            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['bid'])+'\n')
+
+    return task_requests
 
 def parse_test_data(filename,cpus,mems,machines):
     global tasks
@@ -64,10 +67,10 @@ def parse_test_data(filename,cpus,mems,machines):
                 'id': str(i),
                 'cpus': float(arr[0]),
                 'mems': float(arr[1]),
-                'price': int(arr[2])
+                'bid': int(arr[2])
             }
             key = str(i)
-            tasks[key] = task
+            task_requests[key] = task
             i+=1
             print(task)
 
@@ -99,81 +102,68 @@ def add_machine(id,cpus,mems):
     send_colony("create",machine.machineid, str(machine.cpus), str(machine.mems))
 
 
-# 从task_queue中取出最大的，从machines中取出最小的，放置
-def dispatch_tasks(tasks):
-    slogger.debug("dispatch")
 
-    for key,task in tasks.items():
-        price = int(0 - task['price'])
-        heapq.heappush(reliable_queue,(price,task['id'],task))
-
-    # the following is only for test
-    while reliable_queue:
-        neg_price,id, task = heapq.heappop(reliable_queue)
-        slogger.debug("pop task: %s",id)
+def allocate(task):
+    if 'bid' in task and task['bid']!='0':
         machine = heapq.heappop(machine_queue)
-
-        machine.add_reliable_task(task)
-
-        print("pop machine: id = %s", machine.machineid)
+        machine.total_value += task['bid']
+        
+        task = machine.add_reliable_task(task)
+        heapq.heappush(machine_queue,machine)
+        
+        tasks[task['id']] = task
+        
+        #    slogger.debug("pop machine: id = %s", machine.machineid)
         send_task(machine,task,"add")
 
-        heapq.heappush(machine_queue,machine)
-
-def dispatch(task):
-    if task["type"]=='reliable':
-        dispatch_reliable(task)
     else:
-        dispatch_restricted(task)
+        if(restricted_index == len(machines)):
+            restricted =0
+        else:
+            restricted_index += 1
+            
+        task = machines[restricted_index].add_restricted_task(task)
 
+        tasks[task['id']] = task
 
-def dispatch_reliable(task):
-#    slogger.debug("dispatch reliable")
-
-    tasks[task['id']] = task
-    machine = heapq.heappop(machine_queue)
-
-    machine.add_reliable_task(task)
-
-#    slogger.debug("pop machine: id = %s", machine.machineid)
-    send_task(machine,task,"add")
-
-    heapq.heappush(machine_queue,machine)
-
-
-def dispatch_restricted(task):
-#    slogger.debug("dispatch restricted")
-
-    tasks[task['id']] = task
-    if(restricted_index == len(machines)):
-        resctricted =0
-    else:
-        restrcted_index += 1
-
-    machine.add_restricted_task(task)
+    return task
 
 def release(id):
-    task = tasks[id]
-    machine = task['machine']
+    machine = tasks[id]['machine']
     if task['type'] == 'reliable':
         slogger.debug("release reliable")
-        machine.release_reliable_task(task)
+        for index,machine in enumerate(machine_queue):
+            if task['machine'] == machine:
+                del machine_queue[index]
+                break
+
+        machine.total_value -= task['bid']
+        heapq.heappush(machine_queue,machine)
+        machine.release_reliable_task(id)
+        
+        send_task(self,task,"delete")
+        
     else:
         slogger.debug("release restricted")
-        machine.release_restricted_task(task)
+        machine.release_restricted_task(id)
+
+    del tasks[id]
 
 
-def test_dispatch_and_release():
+def test_allocate_and_release():
 
     init_scheduler(None)
 
-    generate_test_data(64,256,1000,"reliable",0)
+    requests = generate_test_data(64,256,1000,"reliable",0)
 #    generate_test_data(64,256,1,"restricted",192)
 
-    for index,task in tasks.items():
-        dispatch(task)
-
+    for index,request in requests.items():
+        allocate(request)
     slogger.info("dispatch tasks done")
+
+    for index,request in requests.items():
+        release(request)
+    slogger.info("release tasks done")
 
     time.sleep(100)
 
@@ -210,4 +200,4 @@ def init_scheduler(initial_machines):
 if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
-    test_dispatch_and_release();
+    test_allocate_and_release();

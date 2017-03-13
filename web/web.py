@@ -135,9 +135,6 @@ def listCluster():
 def createCluster():
     createClusterView.clustername = request.form["clusterName"]
     createClusterView.image = request.form["image"]
-    createClusterView.cluster_size = request.form["cluster_size"]
-    createClusterView.container_size = request.form['container_size']
-    createClusterView.bidprice = request.form["bidprice"]
     return createClusterView.as_view()
 
 @app.route("/workspace/scaleout/<clustername>/", methods=['POST'])

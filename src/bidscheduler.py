@@ -6,32 +6,32 @@ from log import logger
 import nodemgr
 import bisect, uuid
 class AllocationOfTask(object):
-    __slots__ = 'id','userid','jobid','taskid','resources','bidprice','type','machineid','lxc_name'
+    __slots__ = 'id','userid','clusterid','taskid','resources','bid','type','machineid','lxc_name'
     def __key(self):
-        return (self.userid, self.jobid, self.taskid)
+        return (self.userid, self.clusterid, self.taskid)
     def __hash__(self):
         return hash(self.__key())
     def __lt__(self, other):
-        if self.bidprice < other.bidprice:
+        if self.bid < other.bid:
             return True
         else:
             return False
     def __le__(self, other): 
-        if self.bidprice <= other.bidprice:
+        if self.bid <= other.bid:
             return True
         else:
             return False
     def __eq__(self, other):
         return self.__key()==other.__key()
     def __ne__(self, other):
-        return self.bidprice != other.bidprice
+        return self.bid != other.bid
     def __gt__(self, other):
-        if self.bidprice > other.bidprice:
+        if self.bid > other.bid:
             return True
         else:
             return False
     def __ge__(self, other):
-        if self.bidprice >=  other.bidprice:
+        if self.bid >=  other.bid:
             return True
         else:
             return False

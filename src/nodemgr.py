@@ -5,7 +5,7 @@ import threading, random, time, xmlrpc.client, sys
 from nettools import netcontrol
 from log import logger
 import env
-import bidscheduler
+
 ##########################################
 #                NodeMgr
 # Description : manage the physical nodes
@@ -50,6 +50,7 @@ class NodeMgr(object):
         self.rpcs = []
 
         # get allnodes
+        # used in recovery mode, find alll the lost running nodes
         self.allnodes = self._nodelist_etcd("allnodes")
         self.runnodes = []
         [status, runlist] = self.etcd.listdir("machines/runnodes")
@@ -59,8 +60,9 @@ class NodeMgr(object):
                 logger.info ("running node %s" % nodeip)
                 self.runnodes.append(nodeip)
                 self.rpcs.append(xmlrpc.client.ServerProxy("http://%s:%s" % (nodeip, self.workerport)))
+                
                 logger.info ("add %s:%s in rpc client list" % (nodeip, self.workerport))
-           
+
         logger.info ("all nodes are: %s" % self.allnodes)
         logger.info ("run nodes are: %s" % self.runnodes)
 
@@ -132,7 +134,14 @@ class NodeMgr(object):
                             % (nodeip, self.workerport)))
                         logger.info ("add %s:%s in rpc client list" %
                             (nodeip, self.workerport))
-                        bidscheduler.addNode(nodeip)
+
+                        # add machine to the scheduler
+                        import dscheduler
+                        [status,total_cpus] = self.etcd.getkey("cpus/"+nodeip)
+                        [status,total_mems] = self.etcd.getkey("mems/"+nodeip)
+                        logger.info("add machine %s to scheduler, cpus: %s, mems: %s",nodeip, total_cpus, total_mems)
+                        dscheduler.add_machine(nodeip,total_cpus,total_mems)
+                        
     # get all run nodes' IP addr
     def get_nodeips(self):
         return self.allnodes

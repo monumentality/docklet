@@ -23,11 +23,10 @@ int destroy_colony_thread(){
 }
 
 int main_thread(){
-
+  setbuf(stdout, NULL);
   DEBUGC("old max sockets: %ld\n",zsys_socket_limit());
   zsys_set_max_sockets(100000);
   DEBUGC("old max sockets: %ld\n",zsys_socket_limit());
-
   zsys_handler_set(NULL);
   s_catch_signals();
   // 5001用来同步sub，5000用于sub，5002用于主进程接受创建销毁pthread
@@ -35,6 +34,7 @@ int main_thread(){
   DEBUGC("waiting for mmdkp sync request... \n");
   char * sync_msg = zstr_recv(rep);
   DEBUGC("recv mmdkp sync request: %s\n",sync_msg);
+
   free(sync_msg);
   zstr_send(rep,"mmdkp sync success");
   DEBUGC("mmdkp sync done \n");
@@ -43,21 +43,21 @@ int main_thread(){
   //  assert(poller);
 
   while(1){
-      char *oper = zstr_recv(rep);
-      char *id = zstr_recv(rep);
-      char *cpus = zstr_recv(rep);
-      char *mems =zstr_recv(rep);
-      DEBUGC("recevice new thread request: %s %s %s %s\n", oper,id, cpus,mems);
-      zstr_send(rep,"new colony success");
-
-      create_and_run_colony_thread(strdup(id), strtol(cpus,NULL,10),strtol(mems,NULL,10));
-
-      DEBUGC("after create thread! \n");
-      zstr_free(&oper);
-      zstr_free(&id);
-      zstr_free(&cpus);
-      zstr_free(&mems);
-      //  }
+    char *oper = zstr_recv(rep);
+    char *id = zstr_recv(rep);
+    char *cpus = zstr_recv(rep);
+    char *mems =zstr_recv(rep);
+    DEBUGC("recevice new thread request: %s %s %s %s\n", oper,id, cpus,mems);
+    zstr_send(rep,"new colony success");
+    
+    create_and_run_colony_thread(strdup(id), strtol(cpus,NULL,10),strtol(mems,NULL,10));
+    
+    DEBUGC("after create thread! \n");
+    zstr_free(&oper);
+    zstr_free(&id);
+    zstr_free(&cpus);
+    zstr_free(&mems);
+    //  }
   }
       //  zpoller_destroy(&poller);
   zsock_destroy(&rep);

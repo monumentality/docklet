@@ -73,11 +73,13 @@ class RedirectLogger(object):
 
 
 def init_slogger():
-
+#    print("init slogger")
     slogger = logging.getLogger("scheduler")
     slogger.setLevel(logging.DEBUG)
-
-    info_fh = logging.FileHandler('scheduler.log')
+    
+    homepath = env.getenv('FS_PREFIX')
+    LOG_FILENAME = homepath + '/local/log/scheduler.log'
+    info_fh = logging.FileHandler(LOG_FILENAME)
     info_fh.setLevel(logging.INFO)
 
     debug_sh = logging.StreamHandler(sys.stdout)
@@ -87,8 +89,8 @@ def init_slogger():
     info_fh.setFormatter(formatter)
     debug_sh.setFormatter(formatter)
 
-#    slogger.addHandler(info_fh)
-    slogger.addHandler(debug_sh)
+    slogger.addHandler(info_fh)
+#    slogger.addHandler(debug_sh)
 
 init_slogger()
 

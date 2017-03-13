@@ -3,8 +3,6 @@
 # -*- coding: UTF-8 -*-
 
 import zmq
-import machine
-from machine import *
 import time
 from log import slogger
 
@@ -41,13 +39,11 @@ def init_sync_socket():
     sync_s.bind(sync_with)
     slogger.debug("Waiting for subscriber to connect...")
 
-def sync_colonies(times):
-    for i in range(0, times):
-        id = sync_s.recv_string()
-        slogger.debug("done sync with %s", id)
-        sync_s.send_string("sync success")
-
-    slogger.info("all colony synced");
+def sync_colony():
+    id = sync_s.recv_string()
+    slogger.debug("done sync with %s", id)
+    sync_s.send_string("sync success")
+    slogger.info("colony %s synced",id);
 
 def send_task(machine,task, oper):
 
@@ -98,11 +94,16 @@ def recv_result(machines):
     while(True):
         slogger.debug("waiting for result!")
         machineid = result_s.recv_string()
-        result_str = result_s.recv_string()
-        slogger.info("recv_string result of machine %s: %s", machineid,result_str)
+        solution_str = result_s.recv_string()
+        mem_value_str = result_s.recv_string()
+        ratio_str = result_s.recv_string()
+
+        mem_value = float(mem_value_str)
+        ratio = float(ratio_str)
+        slogger.info("recv_string result of machine %s: %s %e %e", machineid, solution_str, mem_value, ratio)
         result_s.send_string("success")
         machine = machines[machineid]
-        machine.change_reliable_allocations(result_str);
+        machine.change_reliable_allocations(solution_str);
 
 def test_pub_socket():
     generate_test_data(64,256,1)

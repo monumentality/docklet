@@ -6,6 +6,7 @@ import datetime
 from log import logger
 import env
 import proxytool
+import dscheduler
 
 ##################################################
 #                  VclusterMgr
@@ -80,7 +81,7 @@ class VclusterMgr(object):
                 self.detach_cluster(cluster, user)
         logger.info("detached all vclusters for all users")
      
-    def create_cluster(self, clustername, username, image, user_info, setting, bidprice):
+    def create_cluster(self, clustername, username, image, user_info, setting, bid):
 
         if self.is_cluster(clustername, username):
             return [False, "cluster:%s already exists" % clustername]
@@ -106,18 +107,7 @@ class VclusterMgr(object):
         ips = result
         clusterid = self._acquire_id()
 
-        # call bidscheduler.allocate, get resources
-        logger.info(" call bidscheduler.allocate")
-        logger.info(user_info)
-        job_allocation_request = {
-            'jobid': clusterid,
-            'userid': username,
-            'tasks_count': cluster_size,
-            'resources': container_size,
-            'bidprice': bidprice
-        }
-        import bidscheduler
-        job_allocations = bidscheduler.allocate(job_allocation_request)
+
         
         clusterpath = self.fspath+"/global/users/"+username+"/clusters/"+clustername
         hostpath = self.fspath+"/global/users/"+username+"/hosts/"+str(clusterid)+".hosts"
@@ -125,48 +115,38 @@ class VclusterMgr(object):
         containers = []
         logger.info(workers)
         for i in range(0, clustersize):
-            # onework = workers[random.randint(0, len(workers)-1)]
-            #onework = workers[job_allocations[i]['allocation'].machineid]
-            onework = self.nodemgr.ip_to_rpc(job_allocations[i]['allocation'].machineid)
+
             lxc_name = username + "-" + str(clusterid) + "-" + str(i)
+
+            # call bidscheduler.allocate, get resources
+            logger.info(" call bidscheduler.allocate")
+            logger.info(user_info)
+            task_allocation_request = {
+                'id': lxc_name,
+                'cpus': setting['cpu'],
+                'mems': setting['memory'],
+                'bid': bid
+            }
+            task_allocation = dscheduler.pre_allocate(task_allocation_request)
+            
+            # onework = workers[random.randint(0, len(workers)-1)]
+            onework = self.nodemgr.ip_to_rpc(task_allocation['machineid'])
+            
             hostname = "host-"+str(i)
             logger.info ("create container with : name-%s, username-%s, clustername-%s, clusterid-%s, hostname-%s, ip-%s, gateway-%s, image-%s" % (lxc_name, username, clustername, str(clusterid), hostname, ips[i], gateway, image_json))
-<<<<<<< HEAD
 
-            configuration = {
-                'lxc_name': lxc_name,
-                'username': username,
-                'user_info': user_info,
-                'clustername': clustername,
-                'clusterid':str(clusterid),
-                'containerid':str(i),
-                'hostname':hostname,
-                'ip':ips[i],
-                'gateway':gateway,
-                'vlanid':str(vlanid),
-                'image':image_json,
-                'resources': job_allocations[i]['allocation'].resources,
-                'type': job_allocations[i]['allocation'].type
-            }
-            logger.info ( "create using configuration: %s" % str(configuration))
-            # [success,message] = onework.create_container(lxc_name, username, user_info , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json,resource_type)
-            
-            [success,message] = onework.create_container(configuration)
-            
-=======
-            [success,message] = onework.create_container(lxc_name, username, json.dumps(setting) , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json)
->>>>>>> fab8ab478995fd60402b77cf632599780896963c
+
+        
+            [success,message] = onework.create_container(lxc_name, username, json.dumps(setting) , clustername, str(clusterid), str(i), hostname, ips[i], gateway, str(vlanid), image_json, task_allocation)
+
             if success is False:
                 logger.info("container create failed, so vcluster create failed")
                 return [False, message]
             logger.info("container create success")
             hosts = hosts + ips[i].split("/")[0] + "\t" + hostname + "\t" + hostname + "."+clustername + "\n"
-<<<<<<< HEAD
-            containers.append({ 'containername':lxc_name, 'hostname':hostname, 'ip':ips[i], 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") })
-            
-=======
+
             containers.append({ 'containername':lxc_name, 'hostname':hostname, 'ip':ips[i], 'host':self.nodemgr.rpc_to_ip(onework), 'image':image['name'], 'lastsave':datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'setting': setting })
->>>>>>> fab8ab478995fd60402b77cf632599780896963c
+
         hostfile = open(hostpath, 'w')
         hostfile.write(hosts)
         hostfile.close()
@@ -177,7 +157,7 @@ class VclusterMgr(object):
         clusterfile.close()
         return [True, info]
 
-    def scale_out_cluster(self,clustername,username,image,user_info, setting):
+    def scale_out_cluster(self,clustername,username,image,user_info, setting, bid):
         if not self.is_cluster(clustername,username):
             return [False, "cluster:%s not found" % clustername]
         workers = self.nodemgr.get_rpcs()
@@ -197,15 +177,36 @@ class VclusterMgr(object):
         clusterpath = self.fspath + "/global/users/" + username + "/clusters/" + clustername
         hostpath = self.fspath + "/global/users/" + username + "/hosts/" + str(clusterid) + ".hosts"
         cid = clusterinfo['nextcid']
-        onework = workers[random.randint(0, len(workers)-1)]
+        
+#        onework = workers[random.randint(0, len(workers)-1)]
+
         lxc_name = username + "-" + str(clusterid) + "-" + str(cid)
         hostname = "host-" + str(cid)
-        [success, message] = onework.create_container(lxc_name, username, json.dumps(setting), clustername, clusterid, str(cid), hostname, ip, gateway, str(vlanid), image_json)
+
+        # call bidscheduler.pre_allocate
+        logger.info(" call bidscheduler.allocate")
+        logger.info(user_info)
+        task_allocation_request = {
+            'id': lxc_name,
+            'cpus': setting['cpu'],
+            'mems': setting['memory'],
+            'bid': bid
+        }
+        task_allocation = dscheduler.pre_allocate(task_allocation_request)
+        onework = self.nodemgr.ip_to_rpc(task_allocation.machineid)
+        
+        [success, message] = onework.create_container(lxc_name, username, json.dumps(setting), clustername, clusterid, str(cid), hostname, ip, gateway, str(vlanid), image_json, task_allocation)
+        
         if success is False:
             logger.info("create container failed, so scale out failed")
             return [False, message]
         if clusterinfo['status'] == "running":
+
+            # allocate resource
+            dscheduler.allocate(lxc_name)
+            
             onework.start_container(lxc_name)
+            
         onework.start_services(lxc_name, ["ssh"]) # TODO: need fix
         logger.info("scale out success")
         hostfile = open(hostpath, 'a')
@@ -318,9 +319,13 @@ class VclusterMgr(object):
         ips = []
         for container in info['containers']:
             worker = self.nodemgr.ip_to_rpc(container['host'])
+
+            # after release resources
+            dscheduler.after_release(container['containername'])
+            
             worker.delete_container(container['containername'])
             ips.append(container['ip'])
-            bidscheduler.release_resource(container['containername'])
+            
         logger.info("delete vcluster and release vcluster ips")
         self.networkmgr.release_userips(username, ips)
         self.networkmgr.printpools()
@@ -343,6 +348,9 @@ class VclusterMgr(object):
         for container in info['containers']:
             if container['containername'] == containername:
                 worker = self.nodemgr.ip_to_rpc(container['host'])
+
+                dscheduler.after_release(containername)
+                
                 worker.delete_container(containername)
                 self.networkmgr.release_userips(username, container['ip'])
                 self.networkmgr.printpools()
@@ -392,6 +400,10 @@ class VclusterMgr(object):
             return [False, "start cluster failed with setting proxy failed"]
         for container in info['containers']:
             worker = self.nodemgr.ip_to_rpc(container['host'])
+
+            # allocate resource to the container
+            dscheduler.allocate(container['containername'])
+            
             worker.start_container(container['containername'])
             worker.start_services(container['containername'])
         info['status']='running'
@@ -440,6 +452,10 @@ class VclusterMgr(object):
             return [False, 'cluster is already stopped']
         for container in info['containers']:
             worker = self.nodemgr.ip_to_rpc(container['host'])
+
+            # release resources
+            dscheduler.release(container['containername'])
+            
             worker.stop_container(container['containername'])
         info['status']='stopped'
         info['start_time']="------"

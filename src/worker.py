@@ -17,6 +17,7 @@ import etcdlib, network, container
 from nettools import netcontrol
 import monitor
 from lvmtool import new_group, recover_group
+import psutil
 
 ##################################################################
 #                       Worker
@@ -167,6 +168,8 @@ class Worker(object):
         logger.info("Monitor Collector has been started.")
         # worker change it state itself. Independedntly from master.
         self.etcd.setkey("machines/runnodes/"+self.addr, "work")
+        self.etcd.setkey("cpus/"+self.addr,psutil.cpu_count())
+        self.etcd.setkey("mems/"+self.addr,str(int(psutil.virtual_memory().total/1024/1024)))
         self.thread_sendheartbeat = threading.Thread(target=self.sendheartbeat)
         self.thread_sendheartbeat.start()
         # start serving for rpc
