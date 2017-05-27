@@ -2,6 +2,7 @@
 #!/usr/bin/python3
 # -*- coding: UTF-8 -*-
 
+from scipy.stats import norm
 import math
 import random
 import numpy as np
@@ -35,6 +36,24 @@ node_manager = None
 
 etcdclient = None
 
+def generate_multivariate_uniform(cpu,mem,num_tasks):
+    mean = [0, 0, 0]
+    cov = [[1, 0.5, 0], [0.5, 1, 0], [0, 0, 1]]
+    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+    
+    cpus = []
+    mems = []
+    values = []
+    for ix in x:
+        cpus.append(norm.cdf(ix)*(cpu-1)+1)
+
+    for iy in y:
+        mems.append(norm.cdf(iy)*(mem-1)+1)
+            
+    for iz in z:
+        values.append(norm.cdf(iz)*(100-1)+1)
+
+    return cpus,mems,values
 def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
     task_requests = {}
     num_tasks = 0
@@ -42,12 +61,13 @@ def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
         num_tasks = int(cpu   * machines)
         cpu_arr = np.random.binomial(cpu, 4/cpu, num_tasks)
         mem_arr = np.random.binomial(mem, 1/256, num_tasks)
+        bids = np.random.uniform(1,100,num_tasks)
     elif distribution == 'uniform':
-        num_tasks = int(cpu/8 * machines)
-        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
-        mem_arr = np.random.uniform(1,mem,cpu*machines)
+        num_tasks = int(cpu/2 * machines)
+#        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
+#        mem_arr = np.random.uniform(1,mem,cpu*machines)
+        cpu_arr, mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
 
-    bids = np.random.uniform(1,100,num_tasks)
     for i in range(0+id_base,int(num_tasks)):
         if cpu_arr[i]==0 or mem_arr[i] ==0:
             continue
@@ -274,7 +294,7 @@ def test_quality(num_machines,request_type):
     for i in range(0,num_machines):
         add_machine("m"+str(i),64,256)
 
-    time.sleep(10)
+    time.sleep(3)
     slogger.info("add colonies done!")
 
 #    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
@@ -290,7 +310,7 @@ def test_quality(num_machines,request_type):
         allocate(request['id'])
     slogger.info("allocate tasks done")
 
-    time.sleep(30)
+    time.sleep(3)
 
     # generate result quality
     total_social_welfare = 0
@@ -299,8 +319,8 @@ def test_quality(num_machines,request_type):
 
     print("MDRPSPA social_welfare: ",total_social_welfare);
 
-#    upper = relax_mdp(requests,64,256,num_machines)
-#    print("upper bound: ", upper)
+    upper = relax_mdp(requests,64,256,num_machines)
+    print("upper bound: ", upper)
     
 def test_generate_test_data(num,request_type):
     for i in range(1,num+1):
@@ -310,6 +330,6 @@ if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
 #    test_all();
-#    test_generate_test_data(1,'binomial')
-    test_quality(100,'binomial')
+    test_generate_test_data(1,'uniform')
+    test_quality(1,'uniform')
 #        generate_test_data(64,256,i,"reliable",'binomial',0)
