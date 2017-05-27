@@ -5,7 +5,7 @@
 
 #define CPUS 64
 #define MEMS  256
-#define  MACHINES  20
+#define  MACHINES  100
 #define PRICES  100
 
 typedef struct Task{
@@ -71,7 +71,7 @@ void compute_relax_opt(){
 
 int main(int argc, char *argv[]){
   //init_tasks();
-  tasks = parse("uniform_tasks.txt");
+  tasks = parse("binomial_tasks100.txt");
   compute_relax_opt();
 
 

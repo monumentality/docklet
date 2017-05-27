@@ -59,7 +59,7 @@ int recv_tasks(Colony *colony){
 	DEBUGC("machine %s add one task: id:%s cpus:%d mems:%d value:%d \n", colony->id,task->id, task->cpus, task->mems, task->value);
 
         task->heuristic = (double)task->value/(task->cpus * colony->ratio + task->mems);
-        task->pheromone = colony->biggest_pheromone;
+        task->pheromone = colony->default_pheromone;
 
         g_hash_table_insert(colony->tasks,task->id,task);
 
@@ -139,7 +139,9 @@ int send_result(Colony *colony){
   for(iter = colony->current_solution; iter; iter = iter->next)
     {
       char *id = (char *)(iter->data);
+      //      DEBUGC("each id  of current_colution: %s\n", id);
       index += sprintf(&solution[index], "%s ", id);
+
     }
   solution[index-1]='\0';
   DEBUGC("send current_solution of machine %s: %s$\n", colony->id, solution);

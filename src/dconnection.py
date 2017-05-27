@@ -103,6 +103,8 @@ def recv_result(machines):
         slogger.info("recv_string result of machine %s: %s %e %e", machineid, solution_str, mem_value, ratio)
         result_s.send_string("success")
         machine = machines[machineid]
+        machine.mem_value = mem_value
+        machine.cpu_value = mem_value * ratio
         machine.change_reliable_allocations(solution_str);
 
 def test_pub_socket():

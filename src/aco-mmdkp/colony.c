@@ -26,7 +26,7 @@ Colony *init_colony(char *colonyid, GHashTable *tasks,int n_ant,int cpus, int me
   colony->stop_terms = stop_terms;
   colony->stop_index = 0;
 
-  colony->ratio = (double)colony->mems / colony->cpus;
+  colony->ratio = (double)colony->mems / (double)colony->cpus;
 
   colony->ants = (Ant**)malloc(sizeof(Ant*)*n_ant);
   for(int i=0;i<n_ant;i++){
@@ -53,10 +53,10 @@ Colony *init_colony(char *colonyid, GHashTable *tasks,int n_ant,int cpus, int me
   colony->is_full = 0;
 
   //默认参数
-  colony->alpha = 1;
+  colony->alpha = 3;
   colony->beta =2;
-  colony->rho = 0.1;
-  colony->xi = 0.1;
+  colony->rho = 0.2;
+  colony->xi = 0.2;
   colony->q0 = 0.5;
   return colony;
 }
@@ -95,15 +95,19 @@ void *init_choice(Colony *colony){
           tmp_cpus += task->cpus;
           tmp_mems += task->mems;
           colony->default_result += task->value;
+	  colony->current_solution = g_list_append(colony->current_solution, task->id);
         }
-      else break;
+      else {
+	colony->current_mem_value = task->value/ (task->cpus * colony->ratio + task->mems);
+	break;
+      }
     }
 
   colony->current_cpus = tmp_cpus;
   colony->current_mems = tmp_mems;
   colony->current_result = colony->default_result;
   colony->default_pheromone = (double)colony->default_result;
-  printf("default sum / pheromone : %ld  %f \n",colony->default_result, colony->default_pheromone);
+  DEBUGA("default sum / pheromone : %ld  %f \n",colony->default_result, colony->default_pheromone);
 
 
 
@@ -115,7 +119,7 @@ void *init_choice(Colony *colony){
   }
   g_list_free(sorted);
 
-  update_ratio(colony);
+  //  update_ratio(colony);
   return NULL;
 }
 
@@ -252,16 +256,7 @@ void * roanoke(Colony *colony){
               result_changed = 1;
               biggest_ant_index = i;
               biggest_result = colony->ants[i]->result;
-
-            }
-	  else if(colony->ants[i]->result == biggest_result)
-            {
-	      // change colony->current_cpu_value to the biggest of all ant's cpu_value
-	      if(colony->ants[i]->mem_value > colony->current_mem_value){
-		colony->current_mem_value = colony->ants[i]->mem_value;
-	      }
-            }
-          colony->current_result = biggest_result;
+	    }
         }
       if(result_changed)
         {
@@ -302,7 +297,7 @@ void *update_pheromone(Colony *colony){
       Task *task = g_hash_table_lookup(colony->tasks, id);
       task->pheromone = (1-colony->rho) * task->pheromone + colony->rho * colony->current_result;
 
-      colony->biggest_pheromone = colony->biggest_pheromone > task->pheromone? colony->biggest_pheromone : task->pheromone;
+      //      colony->biggest_pheromone = colony->biggest_pheromone > task->pheromone? colony->biggest_pheromone : task->pheromone;
     }
 
   return NULL;
@@ -311,11 +306,12 @@ void *update_pheromone(Colony *colony){
 void *update_ratio(Colony *colony){
 
   // 修改ratio
+  /**
   double left_ratio = colony->ratio;
   if(colony->cpus - colony->current_cpus)
-    {
-      left_ratio = (double)(colony->mems - colony->current_mems) / (colony->cpus - colony->current_cpus);
-    }
+      {
+        left_ratio = (double)(colony->mems - colony->current_mems) / (colony->cpus - colony->current_cpus);
+     }
   else
     {
       left_ratio = 256;
@@ -325,7 +321,9 @@ void *update_ratio(Colony *colony){
       DEBUGA("\n\nupdate ratio: %e --> %e \n", colony->ratio, left_ratio);
       colony->ratio = left_ratio;
     }
-
+  **/
+  double new_ratio = (double)pow(colony->mems,2) / pow(colony->cpus,2) * pow(colony->current_cpus,1) / pow(colony->current_mems,1);
+  colony->ratio = new_ratio;
   GHashTableIter iter;
   gpointer key, value;
   g_hash_table_iter_init (&iter, colony->tasks);
@@ -345,14 +343,18 @@ void *run(Colony *colony){
   s_catch_signals();
   init_sockets(colony);
 
+  int initiated = 0;
   while(!s_interrupted){
     recv_tasks(colony);
 
     if(colony->is_full){
-      if(colony->tasks_changed) {
-        colony->stop_index -= 1;
+      if(!initiated){
+	init_choice(colony);
+	initiated =1;
+      }else if(colony->tasks_changed) {
+        colony->stop_index = 0;
         colony->tasks_changed = 0;
-        sleep(1);
+	sleep(1);
       }
       if(colony->stop_terms > colony->stop_index){
         roanoke(colony);
@@ -362,10 +364,11 @@ void *run(Colony *colony){
           INFO("\n colony %s current_result %ld, mem_value: %e\n", colony->id, colony->current_result,colony->current_mem_value);
 
           send_result(colony);
+	  INFO("\n colony default result: %ld, current result: %ld, ratio: %e\n", colony->default_result, colony->current_result, (double)colony->default_result/colony->current_result);
           colony->result_ready = 0;
         }
         //        DEBUGA("sleep\n");
-        sleep(1);
+        //sleep(0.1);
       }
     }else{
         //        DEBUGA("sleep\n");

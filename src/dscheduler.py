@@ -14,6 +14,7 @@ import _thread
 import logging
 import json
 import jsonpickle
+import os
 
 from log import slogger
 
@@ -34,35 +35,47 @@ node_manager = None
 
 etcdclient = None
 
-def generate_test_data(cpu,mem,machines,type,id_base):
+def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
     task_requests = {}
-#    cpus = np.random.binomial(test_cpus, test_cpus/16, test_cpus*2)
-#    mems = np.random.binomial(test_mems, test_mems/16, test_mems*2)
-    cpu_arr = np.random.uniform(1,cpu,cpu*machines)
-    mem_arr = np.random.uniform(1,mem,cpu*machines)
+    if distribution == 'binomial':
+        cpu_arr = np.random.binomial(cpu, cpu/16, cpu*machines)
+        mem_arr = np.random.binomial(mem, mem/16, cpu*machines)
+    elif distribution == 'uniform':
+        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
+        mem_arr = np.random.uniform(1,mem,cpu*machines)
+
     bids = np.random.uniform(1,100,cpu*machines)
     for i in range(0+id_base,cpu*machines):
         if cpu_arr[i]==0 or mem_arr[i] ==0:
             continue
-
-        task = {
-            'id': str(i),
-            'cpus': str(int(math.floor(cpu_arr[i]))),
-            'mems': str(int(math.floor(mem_arr[i]))),
-            'bid': str(int(bids[i]))
-        }
+        if type == 'reliable':
+            task = {
+                'id': str(i),
+                'cpus': str(int(math.floor(cpu_arr[i]))),
+                'mems': str(int(math.floor(mem_arr[i]))),
+                'bid': str(int(bids[i]))
+            }
+        else:
+            task = {
+                'id': str(i),
+                'cpus': str(int(math.floor(cpu_arr[i]))),
+                'mems': str(int(math.floor(mem_arr[i]))),
+                'bid': 0
+            }
         key = str(i)
         task_requests[key] = task
 
     # write to a file
-#    with open('uniform_tasks.txt','w') as f:
-#        for key, task in tasks.items():
-#            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['bid'])+'\n')
+    with open(distribution+'_tasks'+str(machines)+'.txt','w') as f:
+        for key, task in task_requests.items():
+            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['bid'])+'\n')
 
+        f.flush()
+        os.fsync(f)
     return task_requests
 
 def parse_test_data(filename,cpus,mems,machines):
-    global tasks
+    task_requests = {}
     with open(filename,'r') as f:
         i =0
         for line in f.readlines()[0:cpus*machines]:
@@ -77,7 +90,7 @@ def parse_test_data(filename,cpus,mems,machines):
             task_requests[key] = task
             i+=1
             print(task)
-
+    return task_requests
 
 def add_machine(id, cpus=24, mems=240000):
     global machines
@@ -291,9 +304,11 @@ def test_all():
 
     slogger.info("add colonies done!")
 
-    requests = generate_test_data(64,256,2,"reliable",0)
+#    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
 #    generate_test_data(64,256,1,"restricted",192)
 
+    requests = parse_test_data('uniform_tasks1.txt',64,256,1)
+    
     for index,request in requests.items():
         pre_allocate(request)
     slogger.info("pre allocate tasks done")
@@ -312,12 +327,51 @@ def test_all():
         after_release(request['id'])
     slogger.info("after release tasks done")
 
+def test_quality(num_machines):
 
+    init_scheduler()
+    for i in range(0,num_machines):
+        add_machine("m"+str(i),64,256)
 
+    slogger.info("add colonies done!")
 
+#    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
+#    generate_test_data(64,256,1,"restricted",192)
 
+    requests = parse_test_data('uniform_tasks'+str(num_machines)+'.txt',64,256,1)
+    
+    for index,request in requests.items():
+        pre_allocate(request)
+    slogger.info("pre allocate tasks done")
+    
+    for index,request in requests.items():
+        allocate(request['id'])
+    slogger.info("allocate tasks done")
 
+    time.sleep(10)
+    
+    for index,request in requests.items():
+        release(request['id'])
+    slogger.info("release tasks done")
+    
+    for index,request in requests.items():
+        after_release(request['id'])
+    slogger.info("after release tasks done")
+
+    # generate result quality
+    total_social_welfare = 0
+    for i in range(0,num_machines):
+        total_social_welfare += machines[i].social_welfare
+
+    print("social_welfare: %d",total_social_welfare);
+    
+def test_generate_test_data(num):
+    for i in range(1,num+1):
+        generate_test_data(64,256,i,"reliable",'uniform',0)    
 if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
-    test_all();
+#    test_all();
+#    test_generate_test_data(10)
+    test_quality(1)
+#        generate_test_data(64,256,i,"reliable",'binomial',0)

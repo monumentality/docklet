@@ -10,7 +10,7 @@ void *colony_thread(Colony *colony){
 }
 int create_and_run_colony_thread(char *colonyid, int cpus, int mems){
   DEBUGC("create thread %s\n",colonyid);
-  Colony *colony = init_colony(colonyid, NULL, 10, cpus, mems, 1, 8);
+  Colony *colony = init_colony(colonyid, NULL, 10, cpus, mems, 1, 6);
   pthread_t *thread =malloc(sizeof(pthread_t));
   pthread_create(thread,NULL, colony_thread, colony);
 

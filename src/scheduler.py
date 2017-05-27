@@ -1,5 +1,5 @@
 # coding=UTF-8
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: UTF-8 -*-
 
 import math
@@ -12,12 +12,12 @@ from connection import *
 import time
 import _thread
 import logging
+import json
+import jsonpickle
+
 from log import slogger
+
 #import log
-
-reliable_queue = []
-
-restricted_queue = []
 
 machine_queue = []
 
@@ -29,6 +29,10 @@ tasks = {}
 machines = {}
 
 restricted_index = 0
+
+node_manager = None
+
+etcdclient = None
 
 def generate_test_data(cpu,mem,machines,type,id_base):
     task_requests = {}
@@ -43,9 +47,9 @@ def generate_test_data(cpu,mem,machines,type,id_base):
 
         task = {
             'id': str(i),
-            'cpus': int(math.floor(cpu_arr[i])),
-            'mems': int(math.floor(mem_arr[i])),
-            'bid': int(bids[i])
+            'cpus': str(int(math.floor(cpu_arr[i]))),
+            'mems': str(int(math.floor(mem_arr[i]))),
+            'bid': str(int(bids[i]))
         }
         key = str(i)
         task_requests[key] = task
@@ -75,129 +79,243 @@ def parse_test_data(filename,cpus,mems,machines):
             print(task)
 
 
-def add_machine(id,cpus,mems):
+def add_machine(id, cpus=24, mems=240000):
     global machines
     global machine_queue
 
-    machine = AllocationOfMachine()
-    machine.machineid = id
-    machine.cpus = cpus
-    machine.mems = mems
-    machine.colony = Colony({},cpus=cpus,mems=mems)
-    machine.tasks = {}
-    machine.total_value = 0
-
-    machine.cpus_wanted = 0
-    machine.mems_wanted = 0
-
-    # init allocation data
-    machine.reliable_allocations = []
-    machine.restricted_allocations = []
+    machine = AllocationOfMachine(id, cpus, mems)
 
     machines[id] = machine
     heapq.heappush(machine_queue,machine)
 
     # to-do:改成多线程，直接运行每个线程
     # machine.colony.run()
-    send_colony("create",machine.machineid, str(machine.cpus), str(machine.mems))
+    send_colony("create",machine.machineid, str(machine.reliable_cpus), str(machine.reliable_mems))
+    sync_colony()
 
+    # save_machine in etcd
+    save_machine(machine)
+    return machine
 
+def pre_allocate(task):
+    global restricted_index
 
-def allocate(task):
     if 'bid' in task and task['bid']!='0':
         machine = heapq.heappop(machine_queue)
-        machine.total_value += task['bid']
+
+        task['machineid'] = machine.machineid
         
-        task = machine.add_reliable_task(task)
-        heapq.heappush(machine_queue,machine)
-        
+        task['allocation_type'] = 'none'
+        task['allocation_cpus'] = str(int(task['cpus'])*1000)
+        task['allocation_mems'] = task['mems']
+        task['allocation_mems_sw'] = str( 2 * int(task['mems']) )
+        task['allocation_mems_soft'] = str( 2 * int(task['mems']) )
         tasks[task['id']] = task
         
+        machine.total_value += int(task['bid'])
+        heapq.heappush(machine_queue,machine)
+        # save machine and task
+        save_machine(machine)
+        save_task(task)
+    else:
+        if(restricted_index >= len(machines)):
+            restricted_index = 0
+
+        slogger.debug("restricted_index: ", restricted_index)
+        values = list(machines.values())
+        task['machineid'] = values[restricted_index].machineid
+
+        restricted_index += 1
+        
+        task['allocation_type'] = 'none'
+        task['allocation_cpus'] = str(int(task['cpus'])*1000)
+        task['allocation_mems'] = task['mems']
+        task['allocation_mems_sw'] = str( 2 * int(task['mems']) )
+        task['allocation_memsp_soft'] = str( 2 * int(task['mems']) )
+        
+        tasks[task['id']] = task
+        # save task
+        save_task(task)
+    return task
+
+
+
+def allocate(id):
+    task = tasks[id]
+    machineid = task['machineid']
+    machine = machines[machineid]
+    if 'bid' in task and task['bid']!='0':
+        #    slogger.debug("dispatch reliable")
+        task = machine.add_reliable_task(task)
+        # save task and machine
+        save_task(task)
+        save_machine(machine)
         #    slogger.debug("pop machine: id = %s", machine.machineid)
         send_task(machine,task,"add")
 
     else:
-        if(restricted_index == len(machines)):
-            restricted =0
-        else:
-            restricted_index += 1
-            
-        task = machines[restricted_index].add_restricted_task(task)
-
-        tasks[task['id']] = task
-
+        #    slogger.debug("dispatch restricted")
+        task = machine.add_restricted_task(task)
+        # save task and machine
+        save_task(task)
+        save_machine(machine)
     return task
 
 def release(id):
-    machine = tasks[id]['machine']
-    if task['type'] == 'reliable':
+    task = tasks[id]
+    machineid = tasks[id]['machineid']
+    machine = machines[machineid]
+    if 'bid' in task and task['bid']!='0':
         slogger.debug("release reliable")
-        for index,machine in enumerate(machine_queue):
-            if task['machine'] == machine:
-                del machine_queue[index]
-                break
-
-        machine.total_value -= task['bid']
-        heapq.heappush(machine_queue,machine)
         machine.release_reliable_task(id)
-        
-        send_task(self,task,"delete")
-        
+        send_task(machine,task,'delete')
     else:
         slogger.debug("release restricted")
         machine.release_restricted_task(id)
 
+def after_release(id):
+    task = tasks[id]
+    for index,machine in enumerate(machine_queue):
+        if task['machineid'] == machine.machineid:
+            del machine_queue[index]
+            break
+
+    machine.total_value -= int(task['bid'])
+    heapq.heappush(machine_queue,machine)
     del tasks[id]
 
-
-def test_allocate_and_release():
-
-    init_scheduler(None)
-
-    requests = generate_test_data(64,256,1000,"reliable",0)
-#    generate_test_data(64,256,1,"restricted",192)
-
-    for index,request in requests.items():
-        allocate(request)
-    slogger.info("dispatch tasks done")
-
-    for index,request in requests.items():
-        release(request)
-    slogger.info("release tasks done")
-
-    time.sleep(100)
-
-#    for index,task in tasks.items():
-#        release(task['id'])
-
-
-
-
-
-def init_scheduler(initial_machines):
-    #启动c程序，添加新进程
-
-
+def init_scheduler():
+    #启动c程序，后台运行
+    import os
+    os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
+    
     slogger.setLevel(logging.INFO)
-
     slogger.info("init scheduler!")
+    
     init_sync_socket()
     init_colony_socket()
     init_task_socket()
     init_result_socket()
 
-    for i in range(0,1000):
+    _thread.start_new_thread(recv_result,(machines,))
+
+
+
+def recover_scheduler():
+    global machines
+    global tasks
+    global machine_queue
+
+    #启动c程序，后台运行
+    import os
+    os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
+    
+    slogger.setLevel(logging.INFO)
+    slogger.info("recover scheduler!")
+
+    init_sync_socket()
+    init_colony_socket()
+    init_task_socket()
+    init_result_socket()
+
+    # recover alll the machines
+    [status, runlist] = etcdclient.listdir("machines/runnodes")
+    for node in runlist:
+        nodeip = node['key'].rsplit('/',1)[1]
+        if node['value'] == 'ok':
+            slogger.info ("running node %s" % nodeip)
+
+            # inform dscheduler the recovered running nodes
+            import dscheduler
+            slogger.info("recover machine %s to scheduler",nodeip)
+            machine = load_machine(nodeip)
+
+            # recover machine_queue
+            heapq.heappush(machine_queue,machine)
+
+            # send machine to C process
+            send_colony("create",machine.machineid, str(machine.reliable_cpus), str(machine.reliable_mems))
+            sync_colony()
+
+    # recover recv_result thread
+    _thread.start_new_thread(recv_result,(machines,))
+    # recover all the tasks
+    load_tasks()
+    # send tasks to colony 
+    for id,task in tasks.items():
+        machineid = task['machineid']
+        machine = machines[machineid]        
+        send_task(machine,task,"add")
+
+    
+
+
+def save_machine(machine):
+    machine_str = jsonpickle.encode(machine)
+    etcdclient.setkey("/scheduler/machines/"+machine.machineid, machine_str)
+
+def load_machine(ip):
+    global machines
+    [string,machine_str] = etcdclient.getkey("/scheduler/machines/"+ip)
+    machine = jsonpickle.decode(machine_str)
+    machines[machine.machineid]=machine
+    return machine
+    
+def load_machines():
+    global machines
+    [status,kvs] = etcdclient.listdir("/scheduler/machines/")
+    for kv in kvs:
+        machine_str = kv['value']
+    machine = jsonpickle.decode(machine_str)
+    machines[machine.id]=machine
+
+def save_task(task):
+    task_str = json.dumps(task)
+    etcdclient.setkey("/scheduler/tasks/"+task['id'], task_str)
+
+def load_tasks():
+    global tasks
+    [status,kvs] = etcdclient.listdir("/scheduler/tasks/")
+    for kv in kvs:
+        task_str = kv['value']
+    task = jsonpickle.decode(task_str)
+    if task['machineid'] in machines.keys():
+        tasks[kv['key']]=task
+    
+def test_all():
+
+    init_scheduler()
+
+    for i in range(0,2):
         add_machine("m"+str(i),64,256)
 
     slogger.info("add colonies done!")
-    sync_colonies(1000)
-    slogger.info("sync colonies done!")
 
-    _thread.start_new_thread(recv_result,(machines,))
+    requests = generate_test_data(64,256,2,"reliable",0)
+#    generate_test_data(64,256,1,"restricted",192)
+
+    for index,request in requests.items():
+        pre_allocate(request)
+    slogger.info("pre allocate tasks done")
+    
+    for index,request in requests.items():
+        allocate(request['id'])
+    slogger.info("allocate tasks done")
+
+    time.sleep(10)
+    
+    for index,request in requests.items():
+        release(request['id'])
+    slogger.info("release tasks done")
+    
+    for index,request in requests.items():
+        after_release(request['id'])
+    slogger.info("after release tasks done")
+
 
 
 
 if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
-    test_allocate_and_release();
+    test_all();

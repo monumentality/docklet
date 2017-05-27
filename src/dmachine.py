@@ -44,11 +44,11 @@ class AllocationOfMachine(object):
 #        slogger.info("reliable_cpus/mems: %d %d %d %d", self.reliable_cpus, self.reliable_mems, self.reliable_cpus_wanted, self.reliable_mems_wanted)
         # if not full, allocate reliable, else allocate restricted directly
         if(self.reliable_cpus_wanted <= self.reliable_cpus and self.reliable_mems_wanted <= self.reliable_mems):
-            slogger.info("allocate reliable resource to task, id: %s",task['id'])
+#            slogger.info("allocate reliable resource to task, id: %s",task['id'])
             self.allocate_reliable(task)
             self.reliable_allocations.append(task['id'])
         else:
-            slogger.info("allocate restricted resource to task, id: %s",task['id'])
+#            slogger.info("allocate restricted resource to task, id: %s",task['id'])
             self.restricted_allocations.append(task['id'])
             self.reallocate_restricted()
         return task
@@ -85,7 +85,7 @@ class AllocationOfMachine(object):
             task['allocation_mems'] = task['mems']
             task['allocation_mems_sw'] = str( 2 * int(task['mems']))
 
-            slogger.info("change cgroup settings of restricted task: %s", id)
+#            slogger.info("change cgroup settings of restricted task: %s", id)
             self.change_cgroup_settings(task)
             
 
@@ -94,7 +94,7 @@ class AllocationOfMachine(object):
         self.tasks[task['id']] = task
         # to-do:
         # if resource utilization is not higher then threshold, then allocate!
-        slogger.info("allocate restricted resource to task, id: %s",task['id'])
+#        slogger.info("allocate restricted resource to task, id: %s",task['id'])
         self.restricted_allocations.append(task['id'])
         self.reallocate_restricted()
 
@@ -106,11 +106,11 @@ class AllocationOfMachine(object):
         self.reliable_mems_wanted -= int(self.tasks[id]['mems'])
 
         if id in self.reliable_allocations:
-            slogger.info("release reliable resources of task:%s",id)
+#            slogger.info("release reliable resources of task:%s",id)
             self.reliable_allocations.remove(id)
 
         if id in self.restricted_allocations:
-            slogger.info("release restricted resources of task:%s",id)
+#            slogger.info("release restricted resources of task:%s",id)
             self.restricted_allocations.remove(id)
             self.reallocate_restricted()
         del self.tasks[id]
@@ -120,12 +120,12 @@ class AllocationOfMachine(object):
             for id in self.restricted_allocations:
                 task = self.tasks[id]
                 if 'bid' in task and task['bid']!='0':
-                    slogger.info("change task %s from restricted to reliable", id)
+#                    slogger.info("change task %s from restricted to reliable", id)
                     self.restricted_allocations.remove(id)
                     
                     self.allocate_reliable(task)
                     self.reliable_allocations.append(task['id'])
-                    slogger.info("change cgroup settings of reliable task:%s", into)
+#                    slogger.info("change cgroup settings of reliable task:%s", id)
 
                     self.change_cgroup_settings(task)
 
@@ -133,7 +133,7 @@ class AllocationOfMachine(object):
 
         
     def release_restricted_task(self,id):
-        slogger.info("release restricted resources of task:%s", id)
+#        slogger.info("release restricted resources of task:%s", id)
         self.restricted_allocations.remove(id)
         self.reallocate_restricted()
         del self.tasks[id]
@@ -154,7 +154,7 @@ class AllocationOfMachine(object):
 
         # change out to restricted 
         for out in to_move_out_reliable:
-            slogger.info("change task %s from reliable to restricted",out)
+#            slogger.info("change task %s from reliable to restricted",out)
 #            self.tasks[out]['allocation_type']="restricted"
             self.restricted_allocations.append(out)
             self.reliable_allocations.remove(out)
@@ -167,12 +167,12 @@ class AllocationOfMachine(object):
 #                self.create_reliable(self.tasks[into])
                 slogger.info('\n\nshould not be here\n\n')
             else:
-                slogger.info("change task %s from restricted to reliable", into) 
+#                slogger.info("change task %s from restricted to reliable", into) 
                 self.restricted_allocations.remove(into)
 
                 
                 self.allocate_reliable(self.tasks[into])
-                slogger.info("change cgroup settings of reliable task:%s", into)
+#                slogger.info("change cgroup settings of reliable task:%s", into)
                 self.change_cgroup_settings(self.tasks[into])
                 
             self.reliable_allocations.append(into)
