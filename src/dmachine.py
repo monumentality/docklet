@@ -34,6 +34,7 @@ class AllocationOfMachine(object):
         self.reliable_allocations = []
         self.restricted_allocations = []
 
+        self.rareness_ratio = self.mems/self.cpus
 
     def add_reliable_task(self,task):
 

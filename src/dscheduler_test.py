@@ -3,6 +3,9 @@
 # -*- coding: UTF-8 -*-
 
 from scipy.stats import norm
+from scipy.stats import binom
+from scipy.stats import expon
+from scipy.stats import genexpon
 import math
 import random
 import numpy as np
@@ -10,6 +13,7 @@ from mdkp import Colony
 from dmachine_test import AllocationOfMachine
 import heapq
 from dconnection import *
+#import dconnection
 import time
 import _thread
 import logging
@@ -36,6 +40,8 @@ node_manager = None
 
 etcdclient = None
 
+recv_result_thread_stop = False
+
 def generate_multivariate_uniform(cpu,mem,num_tasks):
     mean = [0, 0, 0]
     cov = [[1, 0.5, 0], [0.5, 1, 0], [0, 0, 1]]
@@ -54,20 +60,67 @@ def generate_multivariate_uniform(cpu,mem,num_tasks):
         values.append(norm.cdf(iz)*(100-1)+1)
 
     return cpus,mems,values
+
+def generate_multivariate_binomial(cpu,mem,num_tasks):
+    mean = [0, 0, 0]
+    cov = [[1, -0.5, -0.5], [-0.5, 1, -0.5], [-0.5, -0.5, 1]]
+    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+    
+    cpus = []
+    mems = []
+    values = []
+    for ix in x:
+        cpus.append(binom.ppf(norm.cdf(ix),cpu,8/cpu))
+
+    for iy in y:
+        mems.append(binom.ppf(norm.cdf(iy),mem,8/mem))
+            
+    for iz in z:
+        values.append(norm.cdf(iz)*(100-1)+1)
+#    print("cpu mem corr: ", np.corrcoef(cpus,mems)[0, 1])
+#    print("cpus: ",cpus)
+    return cpus,mems,values
+
+def generate_multivariate_ec2(cpu,mem,num_tasks):
+    mean = [0, 0, 0]
+    cov = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+    
+    cpus = []
+    mems = []
+    values = []
+    for ix in x:
+#        cpus.append(int(8-round(expon.ppf(norm.cdf(ix),0,0.25))))
+        cpus.append(norm.cdf(ix)*3+5)
+    for iy in y:
+#        mems.append(int(15-round(expon.ppf(norm.cdf(iy),0,0.25))))
+        mems.append(norm.cdf(iy)*14+1)
+    for iz in z:
+        values.append(norm.cdf(iz)*(100-1)+1)
+#    print("cpu value corr: ", np.corrcoef(cpus,values)[0, 1])
+#    print("cpus: ",cpus)
+#    print("mems: ",mems)
+#    print("values:",values)
+    return cpus,mems,values
+
 def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
     task_requests = {}
     num_tasks = 0
     if distribution == 'binomial':
-        num_tasks = int(cpu   * machines)
-        cpu_arr = np.random.binomial(cpu, 4/cpu, num_tasks)
-        mem_arr = np.random.binomial(mem, 1/256, num_tasks)
-        bids = np.random.uniform(1,100,num_tasks)
+        num_tasks = int(32 * machines)
+#        cpu_arr = np.random.binomial(cpu, 4/cpu, num_tasks)
+#        mem_arr = np.random.binomial(mem, 1/256, num_tasks)
+        cpu_arr, mem_arr,bids = generate_multivariate_binomial(cpu,mem,num_tasks)
     elif distribution == 'uniform':
-        num_tasks = int(cpu/2 * machines)
+        num_tasks = int(8 * machines)
 #        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
         cpu_arr, mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
-
+    elif distribution == 'ec2':
+        num_tasks = int(cpu * machines)
+#        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
+#        mem_arr = np.random.uniform(1,mem,cpu*machines)
+        cpu_arr, mem_arr,bids = generate_multivariate_ec2(cpu,mem,num_tasks)
     for i in range(0+id_base,int(num_tasks)):
         if cpu_arr[i]==0 or mem_arr[i] ==0:
             continue
@@ -118,7 +171,7 @@ def parse_test_data(filename,cpus,mems,machines,request_type):
             key = str(i)
             task_requests[key] = task
             i+=1
-            print(task)
+#            print(task)
     return task_requests
 
 def add_machine(id, cpus=24, mems=240000):
@@ -152,11 +205,18 @@ def pre_allocate(task):
         task['allocation_mems_soft'] = str( 2 * int(task['mems']) )
         tasks[task['id']] = task
         
-        machine.total_value += int(task['bid'])
         machine.pre_cpus_wanted += int(task['cpus'])
         machine.pre_mems_wanted += int(task['mems'])
-        machine.pre_unit_value = machine.total_value
-#        machine.pre_unit_value = machine.total_value/(machine.pre_cpus_wanted/64 + machine.pre_mems_wanted/256)
+
+        if(machine.pre_cpus_wanted <= machine.reliable_cpus and machine.pre_mems_wanted <= machine.reliable_mems):
+            machine.placement_heu +=int(task['bid'])
+        else:
+            if machine.mem_value == 0:
+                machine.mem_value = machine.placement_heu/(machine.rareness_ratio * machine.reliable_cpus + machine.reliable_mems)
+                machine.cpu_value = machine.mem_value * machine.rareness_ratio
+            heu_incre = int(task['bid']) - int(task['cpus'])* machine.cpu_value - int(task['mems'])*machine.mem_value
+            if heu_incre > 0:
+                machine.placement_heu += heu_incre
 
         heapq.heappush(machine_queue,machine)
 
@@ -222,20 +282,34 @@ def after_release(id):
     heapq.heappush(machine_queue,machine)
     del tasks[id]
 
+def stop_scheduler():
+    print("stop scheduler")
+    close_sync_socket()
+    close_colony_socket()
+    close_task_socket()
+    close_result_socket()
+#    time.sleep(1)
+    os.system("kill -9 $(pgrep acommdkp)")
+    time.sleep(1)
+
+
+#    time.sleep(3)
+    
 def init_scheduler():
     #启动c程序，后台运行
-    import os
-#    os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
-    
+    os.system("rm -rf /home/augustin/docklet/src/aco-mmdkp.log")
+    os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
+    time.sleep(1)
     slogger.setLevel(logging.INFO)
     slogger.info("init scheduler!")
-    
+    print("init scheduler")
     init_sync_socket()
     init_colony_socket()
     init_task_socket()
     init_result_socket()
-
-    _thread.start_new_thread(recv_result,(machines,))
+    import dconnection
+    dconnection.recv_stop = False
+    _thread.start_new_thread(recv_result,(machines,machine_queue,))
 
     
 def test_all():
@@ -294,7 +368,7 @@ def test_quality(num_machines,request_type):
     for i in range(0,num_machines):
         add_machine("m"+str(i),64,256)
 
-    time.sleep(3)
+#    time.sleep(3)
     slogger.info("add colonies done!")
 
 #    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
@@ -321,15 +395,60 @@ def test_quality(num_machines,request_type):
 
     upper = relax_mdp(requests,64,256,num_machines)
     print("upper bound: ", upper)
+    stop_scheduler()
     
 def test_generate_test_data(num,request_type):
     for i in range(1,num+1):
         generate_test_data(64,256,i,"reliable",request_type,0)    
 
+def test_compare_ec2(num_machines, request_type):
+
+    init_scheduler()
+    for i in range(0,num_machines):
+        add_machine("m"+str(i),256,480)
+
+    slogger.info("add colonies done!")
+
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',256,480,num_machines,request_type)
+    
+    for index,request in requests.items():
+        pre_allocate(request)
+        allocate(request['id'])
+        if index == len(requests.items())/2:
+            time.sleep(10)
+    slogger.info("pre allocate tasks done")
+    slogger.info("allocate tasks done")    
+
+#    time.sleep(12)
+
+    # generate result quality
+    total_social_welfare = 0
+    for i in range(0,num_machines):
+        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
+        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
+        total_social_welfare += machines['m'+str(i)].social_welfare
+
+    print("MDRPSPA social_welfare: ",total_social_welfare);
+
+    stop_scheduler()
+
+    ec2_social_welfare = 0
+    newlist = sorted(list(requests.values()), key=lambda k: k['bid'],reverse=True)
+    for i in range(0,32*num_machines):
+        ec2_social_welfare += int(newlist[i]['bid'])
+    print("ec2 social_welfare: ",ec2_social_welfare);
+    
+#    upper = relax_mdp(requests,256,480,num_machines)
+#    print("upper bound: ", upper)
+    
 if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
 #    test_all();
-    test_generate_test_data(1,'uniform')
-    test_quality(1,'uniform')
+#    generate_multivariate_ec2(64,256,10)
+    generate_test_data(256,480,2,"reliable",'ec2',0)
+    test_compare_ec2(2,'ec2')
+#    for i in range(0,3):
+#        test_generate_test_data(1,'binomial')
+#        test_quality(1,'binomial')
 #        generate_test_data(64,256,i,"reliable",'binomial',0)

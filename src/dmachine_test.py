@@ -26,10 +26,12 @@ class AllocationOfMachine(object):
 
         self.tasks = {}
 
-        self.total_value = 0
+        self.placement_heu = 0
         self.pre_cpus_wanted = 0
         self.pre_mems_wanted = 0
-        self.pre_unit_value = 0
+        self.cpu_value = 0
+        self.mem_value = 0
+        self.rareness_ratio = self.mems/self.cpus
         
         self.reliable_cpus_wanted = 0
         self.reliable_mems_wanted = 0
@@ -53,6 +55,7 @@ class AllocationOfMachine(object):
             self.allocate_reliable(task)
             self.reliable_allocations.append(task['id'])
             self.social_welfare += int(task['bid'])
+#            self.placement_heu = self.social_welfare
         else:
 #            slogger.info("allocate restricted resource to task, id: %s",task['id'])
             self.restricted_allocations.append(task['id'])
@@ -155,7 +158,11 @@ class AllocationOfMachine(object):
         for result_each in result_arr:
             if result_each in self.tasks:
                 self.social_welfare += int(self.tasks[result_each]['bid'])
+        # recalculate placement_heu
+        self.placement_heu = self.social_welfare
         
+                
+                
         for old in self.reliable_allocations:
             if old in result_arr:
                 to_add_into_reliable.remove(old)
@@ -197,32 +204,32 @@ class AllocationOfMachine(object):
 
 
     def __lt__(self, other):
-        if self.pre_unit_value < other.pre_unit_value:
+        if self.placement_heu < other.placement_heu:
             return True
         else:
             return False
     def __le__(self, other):
-        if self.pre_unit_value <= other.pre_unit_value:
+        if self.placement_heu <= other.placement_heu:
             return True
         else:
             return False
     def __eq__(self, other):
-        if self.pre_unit_value == other.pre_unit_value:
+        if self.placement_heu == other.placement_heu:
             return True
         else:
             return False
     def __ne__(self, other):
-        if self.pre_unit_value != other.pre_unit_value:
+        if self.placement_heu != other.placement_heu:
             return True
         else:
             return False
     def __gt__(self, other):
-        if self.pre_unit_value > other.pre_unit_value:
+        if self.placement_heu > other.placement_heu:
             return True
         else:
             return False
     def __ge__(self, other):
-        if self.pre_unit_value >=  other.pre_unit_value:
+        if self.placement_heu >=  other.placement_heu:
             return True
         else:
             return False
