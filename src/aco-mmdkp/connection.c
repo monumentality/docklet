@@ -99,12 +99,14 @@ int recv_tasks(Colony *colony){
       zstr_free(&mems);
       zstr_free(&value);
       zstr_free(&oper);
+    
       continue;
     }
     else{
       //      DEBUGC("no message\n");
       break;
     }
+    zsock_destroy(&which);
   }
   return 0;
 }

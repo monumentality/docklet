@@ -214,7 +214,7 @@ class AllocationOfMachine(object):
         else:
             return False
     def __eq__(self, other):
-        if self.placement_heu == other.placement_heu:
+        if self.machineid == other.machineid:
             return True
         else:
             return False

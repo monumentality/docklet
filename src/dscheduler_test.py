@@ -20,12 +20,15 @@ import logging
 import json
 import jsonpickle
 import os
+import threading
 
 from log import slogger
 
 #import log
 
 machine_queue = []
+
+queue_lock = threading.Lock()
 
 # only used for test
 task_requests = {}
@@ -192,8 +195,9 @@ def add_machine(id, cpus=24, mems=240000):
 
 def pre_allocate(task):
     global restricted_index
-
+    global queue_lock
     if 'bid' in task and task['bid']!='0':
+        queue_lock.acquire()
         machine = heapq.heappop(machine_queue)
 
         task['machineid'] = machine.machineid
@@ -219,7 +223,7 @@ def pre_allocate(task):
                 machine.placement_heu += heu_incre
 
         heapq.heappush(machine_queue,machine)
-
+        queue_lock.release()
     else:
         if(restricted_index >= len(machines)):
             restricted_index = 0
@@ -251,7 +255,7 @@ def allocate(id):
         task = machine.add_reliable_task(task)
 
         #    slogger.debug("pop machine: id = %s", machine.machineid)
-        send_task(machine,task,"add")
+        send_task(machineid,task,"add")
 
     else:
         #    slogger.debug("dispatch restricted")
@@ -283,6 +287,7 @@ def after_release(id):
     del tasks[id]
 
 def stop_scheduler():
+
     print("stop scheduler")
     close_sync_socket()
     close_colony_socket()
@@ -291,12 +296,11 @@ def stop_scheduler():
 #    time.sleep(1)
     os.system("kill -9 $(pgrep acommdkp)")
     time.sleep(1)
-
-
-#    time.sleep(3)
     
 def init_scheduler():
+    global queue_lock
     #启动c程序，后台运行
+    os.system("kill -9 $(pgrep acommdkp)")
     os.system("rm -rf /home/augustin/docklet/src/aco-mmdkp.log")
     os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
     time.sleep(1)
@@ -309,7 +313,7 @@ def init_scheduler():
     init_result_socket()
     import dconnection
     dconnection.recv_stop = False
-    _thread.start_new_thread(recv_result,(machines,machine_queue,))
+    _thread.start_new_thread(recv_result,(machines,machine_queue,queue_lock))
 
     
 def test_all():
@@ -368,7 +372,7 @@ def test_quality(num_machines,request_type):
     for i in range(0,num_machines):
         add_machine("m"+str(i),64,256)
 
-#    time.sleep(3)
+#    time.sleep(1)
     slogger.info("add colonies done!")
 
 #    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
@@ -408,18 +412,24 @@ def test_compare_ec2(num_machines, request_type):
         add_machine("m"+str(i),256,480)
 
     slogger.info("add colonies done!")
-
+    time.sleep(10)
     requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',256,480,num_machines,request_type)
-    
+
+    i = 0
     for index,request in requests.items():
         pre_allocate(request)
         allocate(request['id'])
-        if index == len(requests.items())/2:
-            time.sleep(10)
+        if i == len(requests.items())/64:
+            print("part")
+            time.sleep(0.5)
+            print("part done")
+            i =0
+        i+=1
+        
     slogger.info("pre allocate tasks done")
     slogger.info("allocate tasks done")    
 
-#    time.sleep(12)
+    time.sleep(10)
 
     # generate result quality
     total_social_welfare = 0
@@ -430,14 +440,15 @@ def test_compare_ec2(num_machines, request_type):
 
     print("MDRPSPA social_welfare: ",total_social_welfare);
 
-    stop_scheduler()
+
 
     ec2_social_welfare = 0
     newlist = sorted(list(requests.values()), key=lambda k: k['bid'],reverse=True)
     for i in range(0,32*num_machines):
         ec2_social_welfare += int(newlist[i]['bid'])
     print("ec2 social_welfare: ",ec2_social_welfare);
-    
+
+    stop_scheduler()
 #    upper = relax_mdp(requests,256,480,num_machines)
 #    print("upper bound: ", upper)
     
@@ -446,8 +457,8 @@ if __name__ == '__main__':
 #    test_colony_socket();
 #    test_all();
 #    generate_multivariate_ec2(64,256,10)
-    generate_test_data(256,480,2,"reliable",'ec2',0)
-    test_compare_ec2(2,'ec2')
+    generate_test_data(256,480,100,"reliable",'ec2',0)
+    test_compare_ec2(100,'ec2')
 #    for i in range(0,3):
 #        test_generate_test_data(1,'binomial')
 #        test_quality(1,'binomial')

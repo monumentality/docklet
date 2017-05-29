@@ -346,7 +346,6 @@ void *run(Colony *colony){
   int initiated = 0;
   while(!s_interrupted){
     recv_tasks(colony);
-
     if(colony->is_full){
       if(!initiated){
 	init_choice(colony);
@@ -372,7 +371,7 @@ void *run(Colony *colony){
       }
     }else{
         //        DEBUGA("sleep\n");
-        sleep(1);
+      //        sleep(1);
     }
   }
 

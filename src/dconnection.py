@@ -5,6 +5,9 @@
 import zmq
 import time
 from log import slogger
+import heapq
+import sys
+import threading
 
 task_ctx = None
 task_s = None
@@ -66,10 +69,11 @@ def sync_colony():
     sync_s.send_string("sync success")
     slogger.info("colony %s synced",id);
 
-def send_task(machine,task, oper):
-
+def send_task(machineid,task, oper):
+    global task_s
+#    print("send task: %s %s:" % (machineid, task['id']))
 #    slogger.debug("Sending new task %s to machine %s, operation:%s  ... " ,task['id'],  machine.machineid, oper)
-    task_s.send_string(str(machine.machineid) + " ",zmq.SNDMORE)
+    task_s.send_string(machineid + " ",zmq.SNDMORE)
     task_s.send_string(str(task['id']),zmq.SNDMORE)
     task_s.send_string(str(task['cpus']),zmq.SNDMORE)
     task_s.send_string(str(task['mems']),zmq.SNDMORE)
@@ -129,10 +133,11 @@ def close_result_socket():
         result_s.close(0)
 
 
-def recv_result(machines,machine_queue):
+def recv_result(machines,machine_queue,lock):
     global result_s
     global result_ctx
     global recv_stop
+    
     while(not recv_stop):
         try:
 #            print("stop: ", recv_stop)
@@ -145,7 +150,7 @@ def recv_result(machines,machine_queue):
             mem_value = float(mem_value_str)
             ratio = float(ratio_str)
             slogger.info("recv_string result of machine %s: %s %e %e", machineid, solution_str, mem_value, ratio)
-
+            
             result_s.send_string("success")
             machine = machines[machineid]
             machine.mem_value = mem_value
@@ -153,17 +158,27 @@ def recv_result(machines,machine_queue):
             machine.rareness_ratio = ratio
             machine.change_reliable_allocations(solution_str);
             print("recv result machineid: %s %e" % (machineid, machine.social_welfare))
-            for m in machine_queue:
-                if m.machineid == machine.machineid:
-                    machine_queue.remove(m)
-                    
-            heapq.push(machine_queue,machine)
-        except:
-            print("except: ",sys.exc_info()[0])
+
+            print("machine queue length: ", len(machine_queue))
+#            for m in listmachine_queue:
+#                if m.machineid == machine.machineid:
+#                    machine_queue.remove(m)
+#                    print("change")
+#                    break
+#            print("machine queue length: ", len(machine_queue))
+            lock.acquire()
+            machine_queue.remove(machine)
+            heapq.heappush(machine_queue,machine)
+            lock.release()
+            print("machine queue length: ", len(machine_queue))
+#            print("change machine_queue done!")
+        except Exception as e:
+            print("except: ",e)
             recv_stop = True
-        finally:
-            close_result_socket()
+#            close_result_socket()
             break
+    return
+
 #    print("stop: ", recv_stop)
 #    result_s.setsockopt( zmq.LINGER, 0 )
 #    result_s.close()
