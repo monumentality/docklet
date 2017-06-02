@@ -115,6 +115,7 @@ int recv_tasks(Colony *colony){
 int destroy_sockets(Colony *colony){
   zpoller_destroy(&colony->task_poller);
   zsock_destroy(&colony->task_socket);
+  zsock_destroy(&colony->result_socket);
   return 0;
 }
 
@@ -159,16 +160,17 @@ int send_result(Colony *colony){
   DEBUGC("send ratio of machine %s: %s$\n", colony->id, ratio);
   
   // send message
+  zstr_sendm(colony->result_socket, "result ");
   zstr_sendm(colony->result_socket, colony->id);
   zstr_sendm(colony->result_socket, solution);
   zstr_sendm(colony->result_socket, mem_value);
   zstr_send(colony->result_socket, ratio);
   
 
-  char *result_reply = zstr_recv(colony->result_socket);
-  DEBUGC("result reply: %s\n",result_reply);
+    char *result_reply = zstr_recv(colony->result_socket);
+    DEBUGC("result reply: %s\n",result_reply);
 
-  free(result_reply);
+  //  free(result_reply);
 
   free(solution);
   free(mem_value);

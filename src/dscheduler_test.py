@@ -21,6 +21,7 @@ import json
 import jsonpickle
 import os
 import threading
+import matplotlib.pyplot as plt
 
 from log import slogger
 
@@ -43,7 +44,7 @@ node_manager = None
 
 etcdclient = None
 
-recv_result_thread_stop = False
+recv_stop = False
 
 def generate_multivariate_uniform(cpu,mem,num_tasks):
     mean = [0, 0, 0]
@@ -120,7 +121,7 @@ def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
         cpu_arr, mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
     elif distribution == 'ec2':
-        num_tasks = int(cpu * machines)
+        num_tasks = int(cpu/4 * machines)
 #        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
         cpu_arr, mem_arr,bids = generate_multivariate_ec2(cpu,mem,num_tasks)
@@ -287,23 +288,26 @@ def after_release(id):
     del tasks[id]
 
 def stop_scheduler():
-
+    global queue_lock
     print("stop scheduler")
-    close_sync_socket()
+    queue_lock.acquire()
+    os.system("kill -9 $(pgrep acommdkp)")
+    time.sleep(3)
+    print("close sockets")
+    close_sync_socket()    
     close_colony_socket()
     close_task_socket()
-    close_result_socket()
-#    time.sleep(1)
-    os.system("kill -9 $(pgrep acommdkp)")
+    import dconnection
+    dconnection.recv_run = False
+    queue_lock.release()
     time.sleep(1)
-    
+
 def init_scheduler():
     global queue_lock
     #启动c程序，后台运行
-    os.system("kill -9 $(pgrep acommdkp)")
     os.system("rm -rf /home/augustin/docklet/src/aco-mmdkp.log")
     os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
-    time.sleep(1)
+    time.sleep(3)
     slogger.setLevel(logging.INFO)
     slogger.info("init scheduler!")
     print("init scheduler")
@@ -311,8 +315,6 @@ def init_scheduler():
     init_colony_socket()
     init_task_socket()
     init_result_socket()
-    import dconnection
-    dconnection.recv_stop = False
     _thread.start_new_thread(recv_result,(machines,machine_queue,queue_lock))
 
     
@@ -406,24 +408,25 @@ def test_generate_test_data(num,request_type):
         generate_test_data(64,256,i,"reliable",request_type,0)    
 
 def test_compare_ec2(num_machines, request_type):
-
+    os.system("kill -9 $(pgrep acommdkp)")
+    time.sleep(3)
     init_scheduler()
     for i in range(0,num_machines):
         add_machine("m"+str(i),256,480)
-
     slogger.info("add colonies done!")
-    time.sleep(10)
+    time.sleep(1)
     requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',256,480,num_machines,request_type)
 
     i = 0
+    j=0
     for index,request in requests.items():
         pre_allocate(request)
         allocate(request['id'])
-        if i == len(requests.items())/64:
-            print("part")
+        if i == len(requests.items())/8:
             time.sleep(0.5)
-            print("part done")
+            print("part ",j, " done")
             i =0
+            j+=1
         i+=1
         
     slogger.info("pre allocate tasks done")
@@ -439,26 +442,50 @@ def test_compare_ec2(num_machines, request_type):
         total_social_welfare += machines['m'+str(i)].social_welfare
 
     print("MDRPSPA social_welfare: ",total_social_welfare);
-
-
-
     ec2_social_welfare = 0
     newlist = sorted(list(requests.values()), key=lambda k: k['bid'],reverse=True)
     for i in range(0,32*num_machines):
         ec2_social_welfare += int(newlist[i]['bid'])
-    print("ec2 social_welfare: ",ec2_social_welfare);
 
-    stop_scheduler()
+    print("ec2 social_welfare: ",ec2_social_welfare)
 #    upper = relax_mdp(requests,256,480,num_machines)
 #    print("upper bound: ", upper)
+
+    stop_scheduler()
+    return total_social_welfare, ec2_social_welfare
+  
+
+def generate_test1_result(num):
+    sw1 = []
+    sw2 = []
+    for i in range(1,num):
+        generate_test_data(256,480,i,"reliable",'ec2',0)
+        i_sw1,i_sw2 = test_compare_ec2(i,'ec2')
+        sw1.append(i_sw1)
+        sw2.append(i_sw2)
+    plt.plot(range(1,num),sw1,color='red')
+    plt.plot(range(1,num),sw2,color='blue')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.title('Compare Social Welfare of  MDRPSPA with EC2')
+    plt.legend()
+    plt.savefig("result1.png")
     
+    with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'w') as f:
+        for i in range(1,num):
+            f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
+        f.flush()
+        os.fsync(f)
+
 if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
 #    test_all();
 #    generate_multivariate_ec2(64,256,10)
-    generate_test_data(256,480,100,"reliable",'ec2',0)
-    test_compare_ec2(100,'ec2')
+#    generate_test_data(256,480,10,"reliable",'ec2',0)
+    generate_test1_result(100)
+#    generate_test_data(256,480,100,"reliable",'ec2',0)
+#    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
 #    for i in range(0,3):
 #        test_generate_test_data(1,'binomial')
 #        test_quality(1,'binomial')
