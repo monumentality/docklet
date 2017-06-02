@@ -477,13 +477,30 @@ def generate_test1_result(num):
         f.flush()
         os.fsync(f)
 
+def generate_test12_result():
+    ratios = []
+    with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'r') as f:
+        for line in f.readlines()[0:99]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios.append(ratio)
+
+    print(len(ratios))
+    plt.plot(np.array(range(1,100)),np.array(ratios),color='red')
+    plt.xlabel('number of machines')
+    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
+    plt.title('Compare Social Welfare of  MDRPSPA with EC2')
+    plt.legend()
+    plt.savefig("result12.png")
+
+
 if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
 #    test_all();
 #    generate_multivariate_ec2(64,256,10)
 #    generate_test_data(256,480,10,"reliable",'ec2',0)
-    generate_test1_result(100)
+    generate_test12_result()
 #    generate_test_data(256,480,100,"reliable",'ec2',0)
 #    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
 #    for i in range(0,3):
