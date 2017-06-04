@@ -195,7 +195,7 @@ def recv_result(machines,machine_queue,lock):
 
             else:
                 lock.release()
-                time.sleep(0.1)
+#                time.sleep(0.1)
         except Exception as e:
             lock.release()
             print("recv thread except: ",e)

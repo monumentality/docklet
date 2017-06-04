@@ -5,7 +5,11 @@
 
 #define CPUS 64
 #define MEMS  256
-#define  MACHINES  10
+
+#ifndef MACHINES
+#define  MACHINES  1
+#endif
+
 #define PRICES  100
 
 typedef struct Task{
@@ -48,11 +52,11 @@ Task * parse(char *filename){
   fclose(fp);
   return tasks;
 }
-void compute_relax_opt(){
+long int compute_relax_opt(){
   long int row = MACHINES * CPUS;
   long int column = MACHINES * MEMS;
-  printf("row,colum, %ld %ld %ld: ",row,column,n_tasks);
-  printf("here\n");
+  //  printf("row,colum, %ld %ld %ld: \n",row,column,n_tasks);
+  //  printf("here\n");
   int cpus,mems,price;
   for (long int i=0; i< n_tasks ;i++){
 
@@ -67,13 +71,29 @@ void compute_relax_opt(){
     }
   }
   printf("%ld\n", opt[row][column]);
+  return opt[row][column];
 }
 
+void writefile(long int result){
+  FILE * fp;
+  char * filename = "/home/augustin/docklet/test_result/quality_uniform_opt1.txt";
+  if((fp=fopen(filename,"a"))==NULL){
+    printf("Cannot open file strike any key exit!");
+    exit(1);
+  }
+  fprintf(fp,"%d %ld\n",MACHINES, result);
+  fclose(fp);
+}
+  
 int main(int argc, char *argv[]){
   //init_tasks();
-  tasks = parse("/home/augustin/docklet/test_data/uniform_tasks10.txt");
-  compute_relax_opt();
-
+  printf("machines: %d \n",MACHINES);
+  char buffer[100];
+  sprintf(buffer,"/home/augustin/docklet/test_data/uniform_tasks%d.txt",MACHINES);
+  printf("%s",buffer);
+  tasks = parse(buffer);
+  long int result = compute_relax_opt();
+  writefile(result);
 
   return 0;
 }

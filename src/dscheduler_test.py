@@ -48,17 +48,17 @@ recv_stop = False
 
 def generate_multivariate_uniform(cpu,mem,num_tasks):
     mean = [0, 0, 0]
-    cov = [[1, 0.5, 0], [0.5, 1, 0], [0, 0, 1]]
+    cov = [[1, -0.5, 0], [-0.5, 1, 0], [0, 0, 1]]
     x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
     
     cpus = []
     mems = []
     values = []
     for ix in x:
-        cpus.append(norm.cdf(ix)*(cpu-1)+1)
+        cpus.append(norm.cdf(ix)*(cpu/4-1)+1)
 
     for iy in y:
-        mems.append(norm.cdf(iy)*(mem-1)+1)
+        mems.append(norm.cdf(iy)*(mem/4-1)+1)
             
     for iz in z:
         values.append(norm.cdf(iz)*(100-1)+1)
@@ -116,7 +116,7 @@ def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
 #        mem_arr = np.random.binomial(mem, 1/256, num_tasks)
         cpu_arr, mem_arr,bids = generate_multivariate_binomial(cpu,mem,num_tasks)
     elif distribution == 'uniform':
-        num_tasks = int(8 * machines)
+        num_tasks = int(32 * machines)
 #        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
         cpu_arr, mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
@@ -224,6 +224,7 @@ def pre_allocate(task):
                 machine.placement_heu += heu_incre
 
         heapq.heappush(machine_queue,machine)
+#        time.sleep(0.1)
         queue_lock.release()
     else:
         if(restricted_index >= len(machines)):
@@ -369,42 +370,51 @@ def relax_mdp(tasks,cpus,mems,machines):
     return opt[cpus][mems]
 
 def test_quality(num_machines,request_type):
-
+    os.system("kill -9 $(pgrep acommdkp)")
     init_scheduler()
     for i in range(0,num_machines):
         add_machine("m"+str(i),64,256)
 
-#    time.sleep(1)
+#    Time.sleep(1)
     slogger.info("add colonies done!")
 
 #    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
 #    generate_test_data(64,256,1,"restricted",192)
 
     requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',64,256,num_machines,request_type)
-    
+
+    i = 0
+    j=0
     for index,request in requests.items():
         pre_allocate(request)
-    slogger.info("pre allocate tasks done")
-    
-    for index,request in requests.items():
         allocate(request['id'])
-    slogger.info("allocate tasks done")
+        if i == len(requests.items())/num_machines/2:
+            time.sleep(1)
+            print("part ",j, " done")
+            i =0
+            j+=1
+        i+=1
+        
+    slogger.info("pre allocate tasks done")
+    slogger.info("allocate tasks done")    
 
-    time.sleep(3)
-
+    time.sleep(10)
+    
     # generate result quality
     total_social_welfare = 0
     for i in range(0,num_machines):
         total_social_welfare += machines['m'+str(i)].social_welfare
-
+    stop_scheduler()
     print("MDRPSPA social_welfare: ",total_social_welfare);
 
-    upper = relax_mdp(requests,64,256,num_machines)
-    print("upper bound: ", upper)
-    stop_scheduler()
+    return total_social_welfare
+#    upper = relax_mdp(requests,64,256,num_machines)
+#    print("upper bound: ", upper)
+
     
 def test_generate_test_data(num,request_type):
     for i in range(1,num+1):
+        print(i)
         generate_test_data(64,256,i,"reliable",request_type,0)    
 
 def test_compare_ec2(num_machines, request_type):
@@ -422,7 +432,7 @@ def test_compare_ec2(num_machines, request_type):
     for index,request in requests.items():
         pre_allocate(request)
         allocate(request['id'])
-        if i == len(requests.items())/8:
+        if i == len(requests.items())/num_machines*2:
             time.sleep(0.5)
             print("part ",j, " done")
             i =0
@@ -455,7 +465,7 @@ def test_compare_ec2(num_machines, request_type):
     return total_social_welfare, ec2_social_welfare
   
 
-def generate_test1_result(num):
+def generate_test11_result(num):
     sw1 = []
     sw2 = []
     for i in range(1,num):
@@ -486,12 +496,106 @@ def generate_test12_result():
             ratios.append(ratio)
 
     print(len(ratios))
-    plt.plot(np.array(range(1,100)),np.array(ratios),color='red')
+    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
     plt.xlabel('number of machines')
     plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
-    plt.title('Compare Social Welfare of  MDRPSPA with EC2')
-    plt.legend()
+    plt.title('Ratio of Social Welfare of  MDRPSPA to EC2')
     plt.savefig("result12.png")
+
+def draw_test1_result():
+    ratios = []
+    sw1 = []
+    sw2 = []
+    with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'r') as f:
+        for line in f.readlines()[0:99]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios.append(ratio)
+            sw1.append(float(arr[0]))
+            sw2.append(float(arr[1]))
+
+    plt.figure(1)
+    plt.plot(range(1,100),sw1,'k-',label='MDRPSPA')
+    plt.plot(range(1,100),sw2,'k--',label='EC2')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.title('Compare Social Welfare of  MDRPSPA with EC2')
+    plt.legend(loc ='upper left')
+    plt.savefig("result1_1.png")
+
+            
+    plt.figure(2)
+    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
+    plt.title('Ratio of Social Welfare of  MDRPSPA to EC2')
+    plt.savefig("result1_2.png")
+
+    
+def generate_test21_result():
+    arr = list(range(1,21))
+    arr.append(30)
+    arr.append(40)
+    arr.append(50)
+    arr.append(100)
+    result = {}
+    for i in arr:
+        result[i] =test_quality(i,'uniform')
+
+    # write to a file
+    with open("/home/augustin/docklet/test_result/quality_uniform_mdrpspa1.txt",'w') as f:
+        for key, task in result.items():
+            f.write(str(key) + ' '+ str(result[key]) + '\n')
+
+        f.flush()
+        os.fsync(f)
+    return
+
+def draw_test2_result():
+    x = list(range(1,21))
+    x.append(30)
+    x.append(40)
+    x.append(50)
+    x.append(100)
+    sw1 = []
+    sw2 = []
+    with open('/home/augustin/docklet/test_result/quality_uniform_mdrpspa1.txt','r') as f:
+        for line in f.readlines()[0:24]:
+            arr = line.split()
+            sw1.append(arr[1])
+
+    with open('/home/augustin/docklet/test_result/quality_uniform_opt1.txt','r') as f:
+        for line in f.readlines()[0:24]:
+            arr = line.split()
+            sw2.append(arr[1])
+
+    plt.figure(1)
+    plt.plot(x,sw1,'k-', label='MDRPSPAA')
+    plt.plot(x,sw2,'k--', label='Upper Bound')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.title('Compare Social Welfare of  MDRPSPAA with Upper Bound')
+    plt.legend(loc='upper left')
+    plt.savefig("result2_1.png")
+
+    ratios = []
+    for i,v in enumerate(x):
+        ratios.append(float(sw1[i]) / float(sw2[i]))
+
+    plt.figure(2)
+    plt.plot(x,ratios,'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('ratio of MDRPSPAA to Upper Bound')
+    plt.title('Ratio of  Social Welfare of  MDRPSPA to Upper Bound')
+    plt.savefig("result2_2.png")
+    
+    with open("/home/augustin/docklet/test_result/quality_uniform1.txt",'w') as f:
+        for i,v in enumerate(x):
+            f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
+        f.flush()
+        os.fsync(f)
+
+    return
 
 
 if __name__ == '__main__':
@@ -500,10 +604,15 @@ if __name__ == '__main__':
 #    test_all();
 #    generate_multivariate_ec2(64,256,10)
 #    generate_test_data(256,480,10,"reliable",'ec2',0)
-    generate_test12_result()
+#    generate_test11_result()
+#    generate_test12_result()
+#    draw_test2_result()
+    draw_test1_result()
 #    generate_test_data(256,480,100,"reliable",'ec2',0)
 #    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
-#    for i in range(0,3):
-#        test_generate_test_data(1,'binomial')
-#        test_quality(1,'binomial')
+#    for i in range(1,101):
+#        print(i)
+#        test_generate_test_data(100,'uniform')
+#    generate_test_data(64,256,20,"reliable",'uniform',0)    
+#    test_quality(20,'uniform')
 #        generate_test_data(64,256,i,"reliable",'binomial',0)
