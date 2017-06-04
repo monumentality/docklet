@@ -597,6 +597,120 @@ def draw_test2_result():
 
     return
 
+def test_time_each(num_machines,request_type):
+    os.system("kill -9 $(pgrep acommdkp)")
+    init_scheduler()
+    for i in range(0,num_machines):
+        add_machine("m"+str(i),64,256)
+
+    slogger.info("add colonies done!")
+
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',64,256,num_machines,request_type)
+    elapsed = 0
+    print("begin")
+    start = time.time()
+    for index,request in requests.items():
+        pre_allocate(request)
+        allocate(request['id'])
+    
+    slogger.info("pre allocate tasks done")
+    slogger.info("allocate tasks done")    
+    print("\n\nallocate done\n\n")
+    # generate result quality
+    old_total_social_welfare = 0
+    new_total_social_welfare = 0
+    while True:
+        new_total_social_welfare =0
+        for i in range(0,num_machines):
+            new_total_social_welfare += machines['m'+str(i)].social_welfare
+        if old_total_social_welfare == new_total_social_welfare:
+            elapsed = time.time()-start
+            print("time used:",elapsed)
+            break
+
+        else:
+            old_total_social_welfare = new_total_social_welfare
+            time.sleep(1)
+    print("MDRPSPA social_welfare: ",new_total_social_welfare);
+    stop_scheduler()
+    return elapsed
+
+def test_time():
+    x = list(range(1,101))
+    times = []
+    for i in range(1,101):
+        used = test_time_each(i,'uniform')
+        times.append(used/8)
+
+    plt.plot(x,times,'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('computing time')
+    plt.title('Computing time of MDRPSPAA')
+    plt.savefig("result3_1.png")
+    
+    with open("/home/augustin/docklet/test_result/time_uniform1.txt",'w') as f:
+        for i,v in enumerate(x):
+            f.write(str(v)+' '+str(times[i])+'\n')
+        f.flush()
+        os.fsync(f)
+
+def test_time_quality(num_machines,request_type):
+    os.system("kill -9 $(pgrep acommdkp)")
+    init_scheduler()
+    for i in range(0,100):
+        add_machine("m"+str(i),64,256)
+
+    slogger.info("add colonies done!")
+
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',64,256,num_machines,request_type)
+    elapsed = 0
+    print("begin")
+    start = time.time()
+
+    times = []
+    quality = []
+    i = 0
+    j=0
+    old_total_social_welfare = 0
+    for index,request in requests.items():
+        pre_allocate(request)
+        allocate(request['id'])
+        if i == len(requests.items())/num_machines:
+            used = time.time()-start
+            times.append(used/8)
+            old_total_social_welfare = 0
+            for i in range(0,num_machines):
+                old_total_social_welfare += machines['m'+str(i)].social_welfare
+            quality.append(old_total_social_welfare)
+            print("part ",j, " done")
+            i =0
+            j+=1
+        i+=1
+
+
+    while True:
+        time.sleep(1)
+        new_total_social_welfare =0
+        for i in range(0,num_machines):
+            new_total_social_welfare += machines['m'+str(i)].social_welfare
+        if old_total_social_welfare == new_total_social_welfare:
+            break
+        else:
+            used = time.time()-start
+            times.append(used/8)
+            quality.append(new_total_social_welfare)
+            old_total_social_welfare = new_total_social_welfare
+            time.sleep(0.1)
+
+    print("MDRPSPA social_welfare: ",new_total_social_welfare);
+
+    plt.plot(times,quality,'k-')
+    plt.xlabel('computing time')
+    plt.ylabel('social welfare')
+    plt.title('Social welfare changes with time')
+    plt.savefig("result3_2.png")
+    stop_scheduler()
+    return
 
 if __name__ == '__main__':
 #    test_pub_socket();
@@ -607,7 +721,11 @@ if __name__ == '__main__':
 #    generate_test11_result()
 #    generate_test12_result()
 #    draw_test2_result()
-    draw_test1_result()
+#    draw_test1_result()
+#    test_time()
+    test_time_quality(100,'uniform')
+#    for i in range(0,10):
+#        test_time_each(100,'uniform')
 #    generate_test_data(256,480,100,"reliable",'ec2',0)
 #    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
 #    for i in range(1,101):

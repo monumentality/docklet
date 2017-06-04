@@ -115,7 +115,7 @@ void *init_choice(Colony *colony){
     Task *task = (Task*)iter_s->data;
     task->pheromone = colony->default_pheromone;
     task->choice = pow(task->heuristic, colony->alpha) * pow(task->pheromone, colony->beta);
-    printf("task info  heu choice: %s %d %d %d %e %e \n",task->id, task->cpus, task->mems, task->value, task->heuristic, task->choice);
+    //    printf("task info  heu choice: %s %d %d %d %e %e \n",task->id, task->cpus, task->mems, task->value, task->heuristic, task->choice);
   }
   g_list_free(sorted);
 
@@ -353,7 +353,7 @@ void *run(Colony *colony){
       }else if(colony->tasks_changed) {
         colony->stop_index = 0;
         colony->tasks_changed = 0;
-	sleep(1);
+	//		sleep(1);
       }
       if(colony->stop_terms > colony->stop_index){
         roanoke(colony);
@@ -371,7 +371,7 @@ void *run(Colony *colony){
       }
     }else{
         //        DEBUGA("sleep\n");
-      //        sleep(1);
+      //            sleep(1);
     }
   }
 
@@ -381,21 +381,21 @@ void *run(Colony *colony){
 void *test_init_colony(){
   GHashTable *tasks =generate_test_tasks(64,256);
   Colony *colony =init_colony("0",tasks,10,64,256,1,8);
-  printf("num of ant: %d \n",colony->n_ant);
+  //  printf("num of ant: %d \n",colony->n_ant);
   init_choice(colony);
   Task *task = g_hash_table_lookup(colony->tasks,"2");
-  printf("heu of id 2: %f \n" ,task->heuristic);
+  //  printf("heu of id 2: %f \n" ,task->heuristic);
   destroy_colony(colony);
 }
 
 void *test_choose(){
   GHashTable *tasks =generate_test_tasks(64,256);
   Colony *colony =init_colony("0",tasks,10,64,256,1,8);
-  printf("num of ant: %d \n",colony->n_ant);
+  //  printf("num of ant: %d \n",colony->n_ant);
   init_choice(colony);
   choose(colony,0);
   Task *task = g_hash_table_lookup(colony->tasks,"2");
-  printf("heu of id 2: %f \n" ,task->heuristic);
+  //  printf("heu of id 2: %f \n" ,task->heuristic);
   destroy_colony(colony);
 }
 
