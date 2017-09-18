@@ -48,9 +48,9 @@ recv_stop = False
 
 def generate_multivariate_uniform(cpu,mem,num_tasks):
     mean = [0, 0, 0]
-    cov = [[1, -0.5, 0], [-0.5, 1, 0], [0, 0, 1]]
+    cov = [[1, -0.5, 0.5], [-0.5, 1, 0.5], [0.5, 0.5, 1]]
     x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
-    
+
     cpus = []
     mems = []
     values = []
@@ -59,7 +59,7 @@ def generate_multivariate_uniform(cpu,mem,num_tasks):
 
     for iy in y:
         mems.append(norm.cdf(iy)*(mem/4-1)+1)
-            
+
     for iz in z:
         values.append(norm.cdf(iz)*(100-1)+1)
 
@@ -69,7 +69,7 @@ def generate_multivariate_binomial(cpu,mem,num_tasks):
     mean = [0, 0, 0]
     cov = [[1, -0.5, -0.5], [-0.5, 1, -0.5], [-0.5, -0.5, 1]]
     x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
-    
+
     cpus = []
     mems = []
     values = []
@@ -78,7 +78,7 @@ def generate_multivariate_binomial(cpu,mem,num_tasks):
 
     for iy in y:
         mems.append(binom.ppf(norm.cdf(iy),mem,8/mem))
-            
+
     for iz in z:
         values.append(norm.cdf(iz)*(100-1)+1)
 #    print("cpu mem corr: ", np.corrcoef(cpus,mems)[0, 1])
@@ -87,9 +87,9 @@ def generate_multivariate_binomial(cpu,mem,num_tasks):
 
 def generate_multivariate_ec2(cpu,mem,num_tasks):
     mean = [0, 0, 0]
-    cov = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    cov = [[1, -0.5, 0.5], [-0.5, 1, 0.5], [0.5, 0.5, 1]]
     x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
-    
+
     cpus = []
     mems = []
     values = []
@@ -125,6 +125,11 @@ def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
 #        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
         cpu_arr, mem_arr,bids = generate_multivariate_ec2(cpu,mem,num_tasks)
+
+    elif distribution == 'ca':
+        num_tasks = int(32 * machines)
+        cpu_arr,mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
+
     for i in range(0+id_base,int(num_tasks)):
         if cpu_arr[i]==0 or mem_arr[i] ==0:
             continue
@@ -202,14 +207,14 @@ def pre_allocate(task):
         machine = heapq.heappop(machine_queue)
 
         task['machineid'] = machine.machineid
-        
+
         task['allocation_type'] = 'none'
         task['allocation_cpus'] = str(int(task['cpus'])*1000)
         task['allocation_mems'] = task['mems']
         task['allocation_mems_sw'] = str( 2 * int(task['mems']) )
         task['allocation_mems_soft'] = str( 2 * int(task['mems']) )
         tasks[task['id']] = task
-        
+
         machine.pre_cpus_wanted += int(task['cpus'])
         machine.pre_mems_wanted += int(task['mems'])
 
@@ -235,13 +240,13 @@ def pre_allocate(task):
         task['machineid'] = values[restricted_index].machineid
 
         restricted_index += 1
-        
+
         task['allocation_type'] = 'none'
         task['allocation_cpus'] = str(int(task['cpus'])*1000)
         task['allocation_mems'] = task['mems']
         task['allocation_mems_sw'] = str( 2 * int(task['mems']) )
         task['allocation_memsp_soft'] = str( 2 * int(task['mems']) )
-        
+
         tasks[task['id']] = task
 
     return task
@@ -295,7 +300,7 @@ def stop_scheduler():
     os.system("kill -9 $(pgrep acommdkp)")
     time.sleep(3)
     print("close sockets")
-    close_sync_socket()    
+    close_sync_socket()
     close_colony_socket()
     close_task_socket()
     import dconnection
@@ -318,7 +323,7 @@ def init_scheduler():
     init_result_socket()
     _thread.start_new_thread(recv_result,(machines,machine_queue,queue_lock))
 
-    
+
 def test_all():
 
     init_scheduler()
@@ -332,25 +337,25 @@ def test_all():
 #    generate_test_data(64,256,1,"restricted",192)
 
     requests = parse_test_data('uniform_tasks1.txt',64,256,1,"uniform")
-    
+
     for index,request in requests.items():
         pre_allocate(request)
     slogger.info("pre allocate tasks done")
-    
+
     for index,request in requests.items():
         allocate(request['id'])
     slogger.info("allocate tasks done")
 
     time.sleep(10)
-    
+
     for index,request in requests.items():
         release(request['id'])
     slogger.info("release tasks done")
-    
+
     for index,request in requests.items():
         after_release(request['id'])
     slogger.info("after release tasks done")
-    
+
 def relax_mdp(tasks,cpus,mems,machines):
 
     cpus = cpus*machines
@@ -394,12 +399,12 @@ def test_quality(num_machines,request_type):
             i =0
             j+=1
         i+=1
-        
+
     slogger.info("pre allocate tasks done")
-    slogger.info("allocate tasks done")    
+    slogger.info("allocate tasks done")
 
     time.sleep(10)
-    
+
     # generate result quality
     total_social_welfare = 0
     for i in range(0,num_machines):
@@ -411,11 +416,11 @@ def test_quality(num_machines,request_type):
 #    upper = relax_mdp(requests,64,256,num_machines)
 #    print("upper bound: ", upper)
 
-    
+
 def test_generate_test_data(num,request_type):
     for i in range(1,num+1):
         print(i)
-        generate_test_data(64,256,i,"reliable",request_type,0)    
+        generate_test_data(64,256,i,"reliable",request_type,0)
 
 def test_compare_ec2(num_machines, request_type):
     os.system("kill -9 $(pgrep acommdkp)")
@@ -438,9 +443,9 @@ def test_compare_ec2(num_machines, request_type):
             i =0
             j+=1
         i+=1
-        
+
     slogger.info("pre allocate tasks done")
-    slogger.info("allocate tasks done")    
+    slogger.info("allocate tasks done")
 
     time.sleep(10)
 
@@ -463,7 +468,68 @@ def test_compare_ec2(num_machines, request_type):
 
     stop_scheduler()
     return total_social_welfare, ec2_social_welfare
-  
+
+def test_compare_ca(num_machines, request_type):
+    os.system("kill -9 $(pgrep acommdkp)")
+    time.sleep(3)
+    init_scheduler()
+    for i in range(0,num_machines):
+        add_machine("m"+str(i),128,256)
+    slogger.info("add colonies done!")
+    time.sleep(1)
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',128,256,num_machines,request_type)
+
+    i = 0
+    j=0
+    for index,request in requests.items():
+        pre_allocate(request)
+        allocate(request['id'])
+        if i == len(requests.items())/num_machines*2:
+            time.sleep(0.5)
+            print("part ",j, " done")
+            i =0
+            j+=1
+        i+=1
+
+    slogger.info("pre allocate tasks done")
+    slogger.info("allocate tasks done")
+
+    time.sleep(10)
+
+    # generate result quality
+    total_social_welfare = 0
+    for i in range(0,num_machines):
+        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
+        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
+        total_social_welfare += machines['m'+str(i)].social_welfare
+
+    print("MDRA social_welfare: ",total_social_welfare);
+
+    # calculate ca-provision social welfare
+    ca_social_welfare = 0
+    vmbids = []
+    for index,request in requests.items():
+        vmbid = {}
+        num_vm = max(int(request['cpus']), math.ceil(int(request['mems'])/2))
+        vmbid['vms'] = num_vm
+        vmbid['bid'] = int(request['bid'])/num_vm
+        vmbids.append(vmbid)
+    newlist = sorted(vmbids, key=lambda k: k['bid'],reverse=True)
+    total_capacity = 128*num_machines
+    utilized = 0
+    for index, vmbid in newlist:
+        utilized += vmbids[i]['vms']
+        if utilized <= total_capacity:
+            ca_social_welfare += vmbids[i]['bid']* vmbids[i]['vms']
+        else:
+            break
+
+    print("ca social_welfare: ",ca_social_welfare)
+#    upper = relax_mdp(requests,256,480,num_machines)
+#    print("upper bound: ", upper)
+
+    stop_scheduler()
+    return total_social_welfare, ec2_social_welfare
 
 def generate_test11_result(num):
     sw1 = []
@@ -480,7 +546,7 @@ def generate_test11_result(num):
     plt.title('Compare Social Welfare of  MDRPSPA with EC2')
     plt.legend()
     plt.savefig("result1.png")
-    
+
     with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'w') as f:
         for i in range(1,num):
             f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
@@ -523,7 +589,7 @@ def draw_test1_result():
     plt.legend(loc ='upper left')
     plt.savefig("result1_1.png")
 
-            
+
     plt.figure(2)
     plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
     plt.xlabel('number of machines')
@@ -531,7 +597,7 @@ def draw_test1_result():
     plt.title('Ratio of Social Welfare of  MDRPSPA to EC2')
     plt.savefig("result1_2.png")
 
-    
+
 def generate_test21_result():
     arr = list(range(1,21))
     arr.append(30)
@@ -588,7 +654,7 @@ def draw_test2_result():
     plt.ylabel('ratio of MDRPSPAA to Upper Bound')
     plt.title('Ratio of  Social Welfare of  MDRPSPA to Upper Bound')
     plt.savefig("result2_2.png")
-    
+
     with open("/home/augustin/docklet/test_result/quality_uniform1.txt",'w') as f:
         for i,v in enumerate(x):
             f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
@@ -612,9 +678,9 @@ def test_time_each(num_machines,request_type):
     for index,request in requests.items():
         pre_allocate(request)
         allocate(request['id'])
-    
+
     slogger.info("pre allocate tasks done")
-    slogger.info("allocate tasks done")    
+    slogger.info("allocate tasks done")
     print("\n\nallocate done\n\n")
     # generate result quality
     old_total_social_welfare = 0
@@ -647,7 +713,7 @@ def test_time():
     plt.ylabel('computing time')
     plt.title('Computing time of MDRPSPAA')
     plt.savefig("result3_1.png")
-    
+
     with open("/home/augustin/docklet/test_result/time_uniform1.txt",'w') as f:
         for i,v in enumerate(x):
             f.write(str(v)+' '+str(times[i])+'\n')
@@ -731,6 +797,6 @@ if __name__ == '__main__':
 #    for i in range(1,101):
 #        print(i)
 #        test_generate_test_data(100,'uniform')
-#    generate_test_data(64,256,20,"reliable",'uniform',0)    
+#    generate_test_data(64,256,20,"reliable",'uniform',0)
 #    test_quality(20,'uniform')
 #        generate_test_data(64,256,i,"reliable",'binomial',0)
