@@ -46,9 +46,18 @@ etcdclient = None
 
 recv_stop = False
 
+cov_0 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+
+cov_0_0_n1  = [[1, -1, 0], [-1, 1, 0], [0, 0, 1]]
+
+cov_0_0_1 = [[1, 1, 0], [-1, 1, 0], [0, 0, 1]]
+
+cov_1_1_0= [[1, -1, 1], [-1, 1, 1], [1, 1, 1]]
+
 def generate_multivariate_uniform(cpu,mem,num_tasks):
     mean = [0, 0, 0]
-    cov = [[1, -0.5, 0.5], [-0.5, 1, 0.5], [0.5, 0.5, 1]]
+#    cov = [[1, -1, 0], [-1, 1, 0], [0, 0, 1]]
+    cov = cov_0
     x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
 
     cpus = []
@@ -87,7 +96,7 @@ def generate_multivariate_binomial(cpu,mem,num_tasks):
 
 def generate_multivariate_ec2(cpu,mem,num_tasks):
     mean = [0, 0, 0]
-    cov = [[1, -0.5, 0.5], [-0.5, 1, 0.5], [0.5, 0.5, 1]]
+    cov = [[1, -1, 1], [-1, 1, 1], [1, 1, 1]]
     x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
 
     cpus = []
@@ -470,6 +479,7 @@ def test_compare_ec2(num_machines, request_type):
     return total_social_welfare, ec2_social_welfare
 
 def test_compare_ca(num_machines, request_type):
+    
     os.system("kill -9 $(pgrep acommdkp)")
     time.sleep(3)
     init_scheduler()
@@ -490,7 +500,7 @@ def test_compare_ca(num_machines, request_type):
             i =0
             j+=1
         i+=1
-
+    
     slogger.info("pre allocate tasks done")
     slogger.info("allocate tasks done")
 
@@ -499,8 +509,8 @@ def test_compare_ca(num_machines, request_type):
     # generate result quality
     total_social_welfare = 0
     for i in range(0,num_machines):
-        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
-        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
+#        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
+#        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
         total_social_welfare += machines['m'+str(i)].social_welfare
 
     print("MDRA social_welfare: ",total_social_welfare);
@@ -510,17 +520,18 @@ def test_compare_ca(num_machines, request_type):
     vmbids = []
     for index,request in requests.items():
         vmbid = {}
-        num_vm = max(int(request['cpus']), math.ceil(int(request['mems'])/2))
+        num_vm = max(int(request['cpus']), math.ceil(float(request['mems'])/2))
         vmbid['vms'] = num_vm
-        vmbid['bid'] = int(request['bid'])/num_vm
+        vmbid['bid'] = float(request['bid'])/num_vm
         vmbids.append(vmbid)
     newlist = sorted(vmbids, key=lambda k: k['bid'],reverse=True)
-    total_capacity = 128*num_machines
+    total_capacity = 128 * num_machines
     utilized = 0
-    for index, vmbid in newlist:
-        utilized += vmbids[i]['vms']
+    for vmbid in newlist:
+        print("ca bid: ",vmbid['vms'],"  ",vmbid['bid'])
+        utilized += vmbid['vms']
         if utilized <= total_capacity:
-            ca_social_welfare += vmbids[i]['bid']* vmbids[i]['vms']
+            ca_social_welfare += vmbid['bid']* vmbid['vms']
         else:
             break
 
@@ -529,7 +540,7 @@ def test_compare_ca(num_machines, request_type):
 #    print("upper bound: ", upper)
 
     stop_scheduler()
-    return total_social_welfare, ec2_social_welfare
+    return total_social_welfare, ca_social_welfare
 
 def generate_test11_result(num):
     sw1 = []
@@ -782,18 +793,20 @@ if __name__ == '__main__':
 #    test_pub_socket();
 #    test_colony_socket();
 #    test_all();
-#    generate_multivariate_ec2(64,256,10)
-#    generate_test_data(256,480,10,"reliable",'ec2',0)
+#    generate_multivariate_ca(128,256,100)
+#    generate_test_data(128,256,100,"reliable",'ca',0)
 #    generate_test11_result()
 #    generate_test12_result()
 #    draw_test2_result()
 #    draw_test1_result()
 #    test_time()
-    test_time_quality(100,'uniform')
+#    test_time_quality(100,'uniform')
 #    for i in range(0,10):
 #        test_time_each(100,'uniform')
 #    generate_test_data(256,480,100,"reliable",'ec2',0)
 #    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
+    generate_test_data(128,256,1,"reliable",'ca',0)
+    i_sw1,i_sw2 = test_compare_ca(1,'ca')
 #    for i in range(1,101):
 #        print(i)
 #        test_generate_test_data(100,'uniform')
