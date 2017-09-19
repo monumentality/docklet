@@ -10,7 +10,7 @@ import math
 import random
 import numpy as np
 from mdkp import Colony
-from dmachine_test import AllocationOfMachine
+from test_dmachine import AllocationOfMachine
 import heapq
 from dconnection import *
 #import dconnection
@@ -248,11 +248,22 @@ def add_machine(id, cpus=24, mems=240000):
 def pre_allocate(task):
     global restricted_index
     global queue_lock
+    global machines
+    
     if 'bid' in task and task['bid']!='0':
-        queue_lock.acquire()
-        machine = heapq.heappop(machine_queue)
+#        queue_lock.acquire()
+#        machine = heapq.heappop(machine_queue)
 
-        task['machineid'] = machine.machineid
+# 计算每台机器新的heu, 挑选最小的
+        least_heu = float('inf')
+        selected_machine = {}
+        for id, machine in machines.items():
+            heu = machine.cpu_value * int(task['cpus']) + machine.mem_value * int(task['mems'])
+            if heu < least_heu:
+                selected_machine = machine
+                least_heu = heu
+
+        task['machineid'] = selected_machine.machineid
 
         task['allocation_type'] = 'none'
         task['allocation_cpus'] = str(int(task['cpus'])*1000)
@@ -261,22 +272,52 @@ def pre_allocate(task):
         task['allocation_mems_soft'] = str( 2 * int(task['mems']) )
         tasks[task['id']] = task
 
+# 更新该台机器的MPV, RV不变
+        machine = selected_machine
         machine.pre_cpus_wanted += int(task['cpus'])
         machine.pre_mems_wanted += int(task['mems'])
 
-        if(machine.pre_cpus_wanted <= machine.reliable_cpus and machine.pre_mems_wanted <= machine.reliable_mems):
-            machine.placement_heu +=int(task['bid'])
-        else:
-            if machine.mem_value == 0:
-                machine.mem_value = machine.placement_heu/(machine.rareness_ratio * machine.reliable_cpus + machine.reliable_mems)
-                machine.cpu_value = machine.mem_value * machine.rareness_ratio
-            heu_incre = int(task['bid']) - int(task['cpus'])* machine.cpu_value - int(task['mems'])*machine.mem_value
-            if heu_incre > 0:
-                machine.placement_heu += heu_incre
+        #把该task加入heu_allocations
+        machine.heu_tasks.append(task)
 
-        heapq.heappush(machine_queue,machine)
+        # 不满
+        if(machine.pre_cpus_wanted <= machine.reliable_cpus and machine.pre_mems_wanted <= machine.reliable_mems):
+            #            utilization = (machine.pre_cpus_wanted * machine.rareness_ratio + machine.pre_mems_wanted) / (machine.reliable_cpus * machine.rareness_ratio + machine.reliable_mems)
+            utilization = 0.5 * machine.pre_cpus_wanted / machine.reliable_cpus + 0.5 * machine.pre_mems_wanted / machine.reliable_mems
+            machine.cpu_value = 0.01 * machine.rareness_ratio * utilization
+            machine.mem_value = 0.01 * utilization
+
+            machine.rareness_ratio = ((machine.reliable_mems ** 2) * machine.pre_cpus_wanted) / ((machine.reliable_cpus ** 2) * machine.pre_mems_wanted)
+
+        # 满，贪心算法，求出获胜者中的最低出价
+        else:
+            if float(task['bid']) <= machine.cpu_value * int(task['cpus']) + machine.mem_value * int(task['mems']):
+                return task
+            
+            for task in machine.heu_tasks:
+                heu = float(task['bid']) / (int(task['cpus']) * machine.rareness_ratio + int(task['mems']))
+                task['heu'] = heu
+                
+            sorted_heu = sorted(machine.heu_tasks, key=lambda k: k['heu'],reverse=True)
+
+            utilized_cpus = 0
+            utilized_mems = 0
+            lowest_heu = 0.01
+            for task in sorted_heu:
+                if utilized_cpus + int(task['cpus']) < machine.reliable_cpus and utilized_mems + int(task['mems']) < machine.reliable_mems:
+                    lowest_heu = task['heu']
+                    utilized_cpus += int(task['cpus'])
+                    utilized_mems += int(task['mems'])
+                else:
+                    break
+
+            machine.cpu_value = machine.rareness_ratio * lowest_heu
+            machine.mem_value = lowest_heu
+
+            machine.rareness_ratio = ((machine.reliable_mems ** 2) * utilized_cpus) / ((machine.reliable_cpus ** 2) * utilized_mems)
+            
+            
 #        time.sleep(0.1)
-        queue_lock.release()
     else:
         if(restricted_index >= len(machines)):
             restricted_index = 0
@@ -860,7 +901,7 @@ if __name__ == '__main__':
 #    generate_test_data(256,480,100,"reliable",'ec2',0)
 #    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
 #    generate_multivariate_uniform_optimal(128,256,512)
-    test_compare_ca_stable(10,'ca')
+    test_compare_ca_stable(50,'ca')
 #    i_sw1,i_sw2 = test_compare_ca_stable(1,'ca')
 #    for i in range(1,101):
 #        print(i)

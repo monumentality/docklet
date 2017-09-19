@@ -353,7 +353,7 @@ void *run(Colony *colony){
       }else if(colony->tasks_changed) {
         colony->stop_index = 0;
         colony->tasks_changed = 0;
-	//		sleep(1);
+			sleep(0.1);
       }
       if(colony->stop_terms > colony->stop_index){
         roanoke(colony);
@@ -367,11 +367,11 @@ void *run(Colony *colony){
           colony->result_ready = 0;
         }
         //        DEBUGA("sleep\n");
-        //sleep(0.1);
+        sleep(0.1);
       }
     }else{
         //        DEBUGA("sleep\n");
-      //            sleep(1);
+       sleep(0.1);
     }
   }
 

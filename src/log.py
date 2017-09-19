@@ -90,7 +90,7 @@ def init_slogger():
     debug_sh.setFormatter(formatter)
 
     slogger.addHandler(info_fh)
-    slogger.addHandler(debug_sh)
+#    slogger.addHandler(debug_sh)
 
 init_slogger()
 

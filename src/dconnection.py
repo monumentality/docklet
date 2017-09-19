@@ -184,7 +184,7 @@ def recv_result(machines,machine_queue,lock):
                 machine.cpu_value = mem_value * ratio
                 machine.rareness_ratio = ratio
                 machine.change_reliable_allocations(solution_str);
-                print("recv result machineid: %s %e" % (machineid, machine.social_welfare))
+#                print("recv result machineid: %s %e" % (machineid, machine.social_welfare))
 
                 result_sub.send_string("success")
                  
