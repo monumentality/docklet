@@ -10,6 +10,14 @@
 #define  MACHINES  1
 #endif
 
+#ifndef DIS
+#define  DIS "uniform"
+#endif
+
+#ifndef CORR
+#define  CORR "corr0"
+#endif
+
 #define PRICES  100
 
 typedef struct Task{
@@ -76,7 +84,8 @@ long int compute_relax_opt(){
 
 void writefile(long int result){
   FILE * fp;
-  char * filename = "/home/augustin/docklet/test_result/quality_uniform_opt1.txt";
+  char filename[100];
+  sprintf(filename, "/home/augustin/docklet/test_result/quality_opt_%s_%s_%d.txt", DIS, CORR, 100); 
   if((fp=fopen(filename,"a"))==NULL){
     printf("Cannot open file strike any key exit!");
     exit(1);
@@ -89,7 +98,7 @@ int main(int argc, char *argv[]){
   //init_tasks();
   printf("machines: %d \n",MACHINES);
   char buffer[100];
-  sprintf(buffer,"/home/augustin/docklet/test_data/uniform_tasks%d.txt",MACHINES);
+  sprintf(buffer,"/home/augustin/docklet/test_data/%s%s_tasks%d.txt",DIS,CORR,MACHINES);
   printf("%s",buffer);
   tasks = parse(buffer);
   long int result = compute_relax_opt();

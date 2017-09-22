@@ -201,7 +201,7 @@ def recv_result(machines,machine_queue,lock):
             print("recv thread except: ",e)
             recv_run = False
             break
-    print("recv stop")
+#    print("recv stop")
     close_result_socket()
     return
 #    print("stop: ", recv_stop)

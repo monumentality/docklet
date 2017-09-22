@@ -46,189 +46,6 @@ etcdclient = None
 
 recv_stop = False
 
-cov_0 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-
-cov_0_0_n1  = [[1, -1, 0], [-1, 1, 0], [0, 0, 1]]
-
-cov_0_0_1 = [[1, 1, 0], [-1, 1, 0], [0, 0, 1]]
-
-cov_1_1_0= [[1, -1, 1], [-1, 1, 1], [1, 1, 1]]
-
-cov_1_1_1 = [[1, 0.9, 0.9], [0.9, 1, 0.9], [0.9, 0.9, 1]]
-
-cov05 = [[1, -0.5, 0.5, -0.5], [-0.5, 1, -0.5, 0.5], [0.5, -0.5, 1, -0.5], [-0.5, 0.5, -0.5, 1]]
-cov11 = [[1, -1, 1, -1], [-1, 1, -1, 1], [1, -1, 1, -1], [-1, 1, -1, 1]]
-cov00 = [[1, 0, 0.5, -0.5], [0, 1, 0, 0.5], [0.5, 0, 1, 0], [0, 0.5, 0, 1]]
-
-def generate_multivariate_uniform_optimal(cpu,mem,num_tasks):
-    mean = [0, 0, 0, 0]
-
-    cov = cov00
-    a,b,c,d = np.random.multivariate_normal(mean, cov, num_tasks).T
-#    for i,ia in enumerate(a):
-#        print(a[i],b[i],c[i],d[i],'\n')
-
-    cpus = []
-    mems = []
-    values = []
-    for ix in a:
-        cpus.append(norm.cdf(ix)*(cpu/4-1)+1)
-
-    for iy in b:
-        mems.append(norm.cdf(iy)*(mem/4-1)+1)
-
-    for index, iz in enumerate(c):
-        if cpus[index]> mems[index]:
-            values.append(norm.cdf(iz)*(100-1)+1)
-        else:
-            values.append(norm.cdf(d[index])*(100-1)+1)
-
-#    for i,icpus in enumerate(cpus):
-#        print(cpus[i],mems[i],values[i],'\n')
-    return cpus,mems,values
-
-def generate_multivariate_uniform(cpu,mem,num_tasks):
-    mean = [0, 0, 0]
-#    cov = [[1, -1, 0], [-1, 1, 0], [0, 0, 1]]
-    cov = cov_0
-    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
-
-    cpus = []
-    mems = []
-    values = []
-    for ix in x:
-        cpus.append(norm.cdf(ix)*(cpu/4-1)+1)
-
-    for iy in y:
-        mems.append(norm.cdf(iy)*(mem/4-1)+1)
-
-    for iz in z:
-        values.append(norm.cdf(iz)*(100-1)+1)
-
-    return cpus,mems,values
-
-def generate_multivariate_binomial(cpu,mem,num_tasks):
-    mean = [0, 0, 0]
-    cov = [[1, -0.5, -0.5], [-0.5, 1, -0.5], [-0.5, -0.5, 1]]
-    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
-
-    cpus = []
-    mems = []
-    values = []
-    for ix in x:
-        cpus.append(binom.ppf(norm.cdf(ix),cpu,8/cpu))
-
-    for iy in y:
-        mems.append(binom.ppf(norm.cdf(iy),mem,8/mem))
-
-    for iz in z:
-        values.append(norm.cdf(iz)*(100-1)+1)
-#    print("cpu mem corr: ", np.corrcoef(cpus,mems)[0, 1])
-#    print("cpus: ",cpus)
-    return cpus,mems,values
-
-def generate_multivariate_ec2(cpu,mem,num_tasks):
-    mean = [0, 0, 0]
-    cov = [[1, -1, 1], [-1, 1, 1], [1, 1, 1]]
-    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
-
-    cpus = []
-    mems = []
-    values = []
-    for ix in x:
-#        cpus.append(int(8-round(expon.ppf(norm.cdf(ix),0,0.25))))
-        cpus.append(norm.cdf(ix)*3+5)
-    for iy in y:
-#        mems.append(int(15-round(expon.ppf(norm.cdf(iy),0,0.25))))
-        mems.append(norm.cdf(iy)*14+1)
-    for iz in z:
-        values.append(norm.cdf(iz)*(100-1)+1)
-#    print("cpu value corr: ", np.corrcoef(cpus,values)[0, 1])
-#    print("cpus: ",cpus)
-#    print("mems: ",mems)
-#    print("values:",values)
-    return cpus,mems,values
-
-def generate_test_data(cpu,mem,machines,request_type,distribution,id_base):
-    task_requests = {}
-    num_tasks = 0
-    if distribution == 'binomial':
-        num_tasks = int(32 * machines)
-#        cpu_arr = np.random.binomial(cpu, 4/cpu, num_tasks)
-#        mem_arr = np.random.binomial(mem, 1/256, num_tasks)
-        cpu_arr, mem_arr,bids = generate_multivariate_binomial(cpu,mem,num_tasks)
-    elif distribution == 'uniform':
-        num_tasks = int(32 * machines)
-#        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
-#        mem_arr = np.random.uniform(1,mem,cpu*machines)
-        cpu_arr, mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
-    elif distribution == 'ec2':
-        num_tasks = int(cpu/4 * machines)
-#        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
-#        mem_arr = np.random.uniform(1,mem,cpu*machines)
-        cpu_arr, mem_arr,bids = generate_multivariate_ec2(cpu,mem,num_tasks)
-
-    elif distribution == 'ca':
-        num_tasks = int(32 * machines)
-        cpu_arr,mem_arr,bids = generate_multivariate_uniform(cpu,mem,num_tasks)
-
-    elif distribution == 'ca-optimal':
-        num_tasks = int(32 * machines)
-        cpu_arr,mem_arr,bids = generate_multivariate_uniform_optimal(cpu,mem,num_tasks)
-
-    for i in range(0+id_base,int(num_tasks)):
-        if cpu_arr[i]==0 or mem_arr[i] ==0:
-            continue
-        if request_type == 'reliable':
-            task = {
-                'id': str(i),
-                'cpus': str(int(math.floor(cpu_arr[i]))),
-                'mems': str(int(math.floor(mem_arr[i]))),
-                'bid': str(int(bids[i]))
-#                'bid': str(max(int(np.random.normal(cpu_arr[i]+mem_arr[i], 10, 1)[0]),0))
-            }
-        else:
-            task = {
-                'id': str(i),
-                'cpus': str(int(math.floor(cpu_arr[i]))),
-                'mems': str(int(math.floor(mem_arr[i]))),
-                'bid': 0
-            }
-        key = str(i)
-        task_requests[key] = task
-
-    # write to a file
-    with open("/home/augustin/docklet/test_data/"+distribution+'_tasks'+str(machines)+'.txt','w') as f:
-        for key, task in task_requests.items():
-            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['bid'])+'\n')
-
-        f.flush()
-        os.fsync(f)
-    return task_requests
-
-def parse_test_data(filename,cpus,mems,machines,request_type):
-    num_tasks =0
-    if request_type=="uniform":
-        num_tasks = cpus * machines
-    else:
-        num_tasks = cpus/2*machines
-    task_requests = {}
-    with open(filename,'r') as f:
-        i =0
-        for line in f.readlines()[0:int(num_tasks)]:
-            arr = line.split()
-            task = {
-                'id': str(i),
-                'cpus': arr[0],
-                'mems': arr[1],
-                'bid': arr[2]
-            }
-            key = str(i)
-            task_requests[key] = task
-            i+=1
-#            print(task)
-    return task_requests
-
 def add_machine(id, cpus=24, mems=240000):
     global machines
     global machine_queue
@@ -382,28 +199,28 @@ def after_release(id):
 
 def stop_scheduler():
     global queue_lock
-    print("stop scheduler")
+#    print("stop scheduler")
     queue_lock.acquire()
-    os.system("kill -9 $(pgrep acommdkp)")
-    time.sleep(1)
-    print("close sockets")
+    os.system("kill -9 $(pgrep acommdkp) > /dev/null 2>&1")
+#    time.sleep(1)
+#    print("close sockets")
     close_sync_socket()
     close_colony_socket()
     close_task_socket()
     import dconnection
     dconnection.recv_run = False
     queue_lock.release()
-    time.sleep(1)
+#    time.sleep(1)
 
 def init_scheduler():
     global queue_lock
     #启动c程序，后台运行
     os.system("rm -rf /home/augustin/docklet/src/aco-mmdkp.log")
     os.system("/home/augustin/docklet/src/aco-mmdkp/acommdkp >/home/augustin/docklet/src/aco-mmdkp.log 2>&1 &")
-    time.sleep(1)
+#    time.sleep(1)
     slogger.setLevel(logging.INFO)
     slogger.info("init scheduler!")
-    print("init scheduler")
+#    print("init scheduler")
     init_sync_socket()
     init_colony_socket()
     init_task_socket()
@@ -461,8 +278,515 @@ def relax_mdp(tasks,cpus,mems,machines):
     print("relax opt: ",opt[cpus][mems])
     return opt[cpus][mems]
 
-def test_quality(num_machines,request_type):
-    os.system("kill -9 $(pgrep acommdkp)")
+
+cov0 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+
+cov1 = [[1, 0.9, 0.9], [0.9, 1, 0.9], [0.9, 0.9, 1]]
+
+#cov1 = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+
+
+cov2 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+
+
+cov05 = [[1, -0.5, 0.5, -0.5], [-0.5, 1, -0.5, 0.5], [0.5, -0.5, 1, -0.5], [-0.5, 0.5, -0.5, 1]]
+
+cov_opt = [[1, -0.9, 0.9, -0.9], [-0.9, 1, -0.9, 0.9], [0.9, -0.9, 1, -0.9], [-0.9, 0.9, -0.9, 1]]
+
+cov00 = [[1, 0, 0.5, -0.5], [0, 1, 0, 0.5], [0.5, 0, 1, 0], [0, 0.5, 0, 1]]
+
+def generate_uniform_opt(cpu,mem,num_tasks):
+    mean = [0, 0, 0, 0]
+
+    cov = cov_opt
+    a,b,c,d = np.random.multivariate_normal(mean, cov, num_tasks).T
+#    for i,ia in enumerate(a):
+#        print(a[i],b[i],c[i],d[i],'\n')
+
+    cpus = []
+    mems = []
+    values = []
+    for ix in a:
+        cpus.append(norm.cdf(ix)*(cpu/4-1)+1)
+
+    for iy in b:
+        mems.append(norm.cdf(iy)*(mem/4-1)+1)
+
+    for index in range(len(c)):
+        if a[index]> b[index]:
+            values.append(norm.cdf(c[index])*(100-1)+1)
+        else:
+            values.append(norm.cdf(d[index])*(100-1)+1)
+#    for i,icpus in enumerate(cpus):
+#        print(cpus[i],mems[i],values[i],'\n')
+#    print(np.corrcoef([cpus,mems,values]))
+    return cpus,mems,values
+
+def generate_uniform(cpu,mem,num_tasks,corr):
+    mean = [0, 0, 0]
+    if corr == 'cov0':
+        cov = cov0
+    elif corr == 'cov1':
+        cov = cov1
+    elif corr == 'cov2':
+        cov = cov2
+    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+
+#    print(np.corrcoef([x,y,z]))
+    cpus = []
+    mems = []
+    values = []
+    for ix in x:
+        cpus.append(norm.cdf(ix)*(cpu/4-1)+1)
+
+    for iy in y:
+        mems.append(norm.cdf(iy)*(mem/4-1)+1)
+
+    for iz in z:
+        values.append(norm.cdf(iz)*(100-1)+1)
+
+#    print( np.corrcoef([cpus,mems,values]) )
+    return cpus,mems,values
+
+def generate_multivariate_binomial(cpu,mem,num_tasks):
+    mean = [0, 0, 0]
+    cov = [[1, -0.5, -0.5], [-0.5, 1, -0.5], [-0.5, -0.5, 1]]
+    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+
+    cpus = []
+    mems = []
+    values = []
+    for ix in x:
+        cpus.append(binom.ppf(norm.cdf(ix),cpu,8/cpu))
+
+    for iy in y:
+        mems.append(binom.ppf(norm.cdf(iy),mem,8/mem))
+
+    for iz in z:
+        values.append(norm.cdf(iz)*(100-1)+1)
+#    print("cpu mem corr: ", np.corrcoef(cpus,mems)[0, 1])
+#    print("cpus: ",cpus)
+    return cpus,mems,values
+
+def generate_ec2(cpu,mem,num_tasks,corr):
+    mean = [0, 0, 0]
+    if corr == 'cov0':
+        cov = cov0
+    elif corr == 'cov1':
+        cov = cov1
+    elif corr == 'cov2':
+        cov = cov2
+    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+
+    cpus = []
+    mems = []
+    values = []
+    for ix in x:
+#        cpus.append(int(8-round(expon.ppf(norm.cdf(ix),0,0.25))))
+        cpus.append(norm.cdf(ix)*3+5)
+    for iy in y:
+#        mems.append(int(15-round(expon.ppf(norm.cdf(iy),0,0.25))))
+        mems.append(norm.cdf(iy)*14+1)
+    for iz in z:
+        values.append(norm.cdf(iz)*(100-1)+1)
+#    print("cpu value corr: ", np.corrcoef(cpus,values)[0, 1])
+#    print("cpus: ",cpus)
+#    print("mems: ",mems)
+#    print("values:",values)
+    return cpus,mems,values
+
+def generate_ec2_opt(cpu,mem,num_tasks):
+
+    mean = [0, 0, 0, 0]
+    cov = cov_opt
+    a,b,c,d = np.random.multivariate_normal(mean, cov, num_tasks).T
+#    for i,ia in enumerate(a):
+#        print(a[i],b[i],c[i],d[i],'\n')
+
+    cpus = []
+    mems = []
+    values = []
+    for ix in a:
+        cpus.append(norm.cdf(ix)*3+5)
+    for iy in b:
+        mems.append(norm.cdf(iy)*14+1)
+
+    for index in range(len(c)):
+        if a[index]> b[index]:
+            values.append(norm.cdf(c[index])*(100-1)+1)
+        else:
+            values.append(norm.cdf(d[index])*(100-1)+1)
+
+#    for i,icpus in enumerate(cpus):
+#        print(cpus[i],mems[i],values[i],'\n')
+    return cpus,mems,values
+
+def generate_test_data(cpu,mem,machines,request_type,distribution,corr,id_base):
+    task_requests = {}
+    num_tasks = 0
+    if distribution == 'binomial':
+        num_tasks = int(32 * machines)
+#        cpu_arr = np.random.binomial(cpu, 4/cpu, num_tasks)
+#        mem_arr = np.random.binomial(mem, 1/256, num_tasks)
+        cpu_arr, mem_arr,bids = generate_multivariate_binomial(cpu,mem,num_tasks)
+    elif distribution == 'uniform':
+        num_tasks = int(32 * machines)
+#        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
+#        mem_arr = np.random.uniform(1,mem,cpu*machines)
+        if corr == 'cov_opt':
+            cpu_arr,mem_arr,bids = generate_uniform_opt(cpu,mem,num_tasks)
+        else:
+            cpu_arr,mem_arr,bids = generate_uniform(cpu,mem,num_tasks, corr)
+
+    elif distribution == 'ec2':
+        num_tasks = int(cpu/4 * machines)
+#        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
+#        mem_arr = np.random.uniform(1,mem,cpu*machines)
+        if corr == 'cov_opt':
+            cpu_arr, mem_arr,bids = generate_ec2_opt(cpu,mem,num_tasks)
+        else:
+            cpu_arr, mem_arr,bids = generate_ec2(cpu,mem,num_tasks,corr)            
+
+    elif distribution == 'ca':
+        num_tasks = int(32 * machines)
+        if corr == 'cov_opt':
+            cpu_arr,mem_arr,bids = generate_uniform_opt(cpu,mem,num_tasks)
+        else:
+            cpu_arr,mem_arr,bids = generate_uniform(cpu,mem,num_tasks, corr)
+
+    for i in range(0+id_base,int(num_tasks)):
+        if cpu_arr[i]==0 or mem_arr[i] ==0:
+            continue
+        if request_type == 'reliable':
+            task = {
+                'id': str(i),
+                'cpus': str(int(math.floor(cpu_arr[i]))),
+                'mems': str(int(math.floor(mem_arr[i]))),
+                'bid': str(int(bids[i]))
+#                'bid': str(max(int(np.random.normal(cpu_arr[i]+mem_arr[i], 10, 1)[0]),0))
+            }
+        else:
+            task = {
+                'id': str(i),
+                'cpus': str(int(math.floor(cpu_arr[i]))),
+                'mems': str(int(math.floor(mem_arr[i]))),
+                'bid': 0
+            }
+        key = str(i)
+        task_requests[key] = task
+
+    # write to a file
+    with open("/home/augustin/docklet/test_data/"+distribution + corr + '_tasks'+str(machines)+'.txt','w') as f:
+        for key, task in task_requests.items():
+            f.write(str(task['cpus'])+' '+str(task['mems'])+' '+str(task['bid'])+'\n')
+
+        f.flush()
+        os.fsync(f)
+    return task_requests
+
+def parse_test_data(filename,cpus,mems,machines,distribution):
+    num_tasks =0
+    if distribution=="uniform":
+        num_tasks = cpus * machines
+    else:
+        num_tasks = cpus/2*machines
+    task_requests = {}
+    with open(filename,'r') as f:
+        i =0
+        for line in f.readlines()[0:int(num_tasks)]:
+            arr = line.split()
+            task = {
+                'id': str(i),
+                'cpus': arr[0],
+                'mems': arr[1],
+                'bid': arr[2]
+            }
+            key = str(i)
+            task_requests[key] = task
+            i+=1
+#            print(task)
+    return task_requests
+
+def test_generate_test_data(num,distribution, corr):
+    for i in range(1,num+1):
+        print(i)
+        generate_test_data(64,256,i,"reliable",distribution,corr,0)
+
+def test_compare_ec2(num_machines, distribution, corr):
+    os.system("kill -9 $(pgrep acommdkp) > /dev/null 2>&1")
+#    time.sleep(1)
+    init_scheduler()
+    for i in range(0,num_machines):
+        add_machine("m"+str(i),256,480)
+    slogger.info("add colonies done!")
+#    time.sleep(1)
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+distribution + corr +'_tasks'+str(num_machines)+'.txt',256,480,num_machines, distribution)
+
+    i = 0
+    j=0
+    for index,request in requests.items():
+        pre_allocate(request)
+        allocate(request['id'])
+        if i == len(requests.items())/num_machines*2:
+            time.sleep(0.1)
+#            print("part ",j, " done")
+            i =0
+            j+=1
+        i+=1
+
+    slogger.info("pre allocate tasks done")
+    slogger.info("allocate tasks done")
+
+    time.sleep(0.1 * num_machines)
+
+    # generate result quality
+    total_social_welfare = 0
+    for i in range(0,num_machines):
+#        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
+#        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
+        total_social_welfare += machines['m'+str(i)].social_welfare
+
+#    print("MDRA social_welfare: ",total_social_welfare);
+    ec2_social_welfare = 0
+    newlist = sorted(list(requests.values()), key=lambda k: k['bid'],reverse=True)
+    for i in range(0,32*num_machines):
+        ec2_social_welfare += int(newlist[i]['bid'])
+
+#    print("ec2 social_welfare: ",ec2_social_welfare)
+#    upper = relax_mdp(requests,256,480,num_machines)
+#    print("upper bound: ", upper)
+
+    stop_scheduler()
+    return total_social_welfare, ec2_social_welfare
+
+
+def generate_ec2_1(num, corr):
+    sw1 = []
+    sw2 = []
+    for i in range(1,num):
+        times = int(num/i)
+        sw1_i = 0
+        sw2_i = 0
+
+        for j in range(times):
+            generate_test_data(256,480,i,"reliable",'ec2',corr,0)
+            sw1_i_j, sw2_i_j = test_compare_ec2(i,'ec2', corr)
+            sw1_i += sw1_i_j
+            sw2_i += sw2_i_j
+        sw1_i = sw1_i / times
+        sw2_i = sw2_i / times
+
+        print(i, " th sw1, sw2:  ", sw1_i, sw2_i, sw1_i/sw2_i)
+        sw1.append(sw1_i)
+        sw2.append(sw2_i)
+        
+
+
+    with open("/home/augustin/docklet/test_result/ec2_1_"+str(num)+"_"+corr+".txt",'w') as f:
+        for i in range(1,num):
+            f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
+        f.flush()
+        os.fsync(f)
+
+    plt.figure(1,figsize=(8,4))
+    plt.plot(range(1,num), sw1, 'k-', label='MDRA', color='red')
+    plt.plot(range(1,num), sw2, 'k--', label='EC2', color='blue')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.legend(loc ='upper left')
+    plt.savefig("ec2_1_"+str(num)+"_"+corr+".png")
+
+def generate_ec2_2(num, corr):
+    ratios = []
+    with open("/home/augustin/docklet/test_result/ec2_1_"+str(num)+"_" + corr + ".txt",'r') as f:
+        for line in f.readlines()[0:num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios.append(ratio)
+
+    print(len(ratios))
+    plt.figure(2,figsize=(8,4))
+    plt.plot(np.array(range(1,num)),np.array(ratios),'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('Improvement factor of Social welfare')
+    plt.ylim(1,1.3)
+#    plt.legend()
+    plt.savefig("ec2_2_"+str(num)+"_" + corr + ".png")
+
+def draw_ec2(num, corr):
+    ratios = []
+    sw1 = []
+    sw2 = []
+    with open("/home/augustin/docklet/test_result/ec2_1_"+str(num)+"_" + corr + ".txt",'r') as f:
+        for line in f.readlines()[0: num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios.append(ratio)
+            sw1.append(float(arr[0]))
+            sw2.append(float(arr[1]))
+
+    plt.figure(1)
+    plt.plot(range(1,100),sw1,'k-',label='MDRA', color='red')
+    plt.plot(range(1,100),sw2,'k--',label='EC2', color='blue')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.legend(loc ='upper left')
+    plt.savefig("ec2_1_"+str(num) +"_"+ corr + ".png")
+
+    plt.figure(2)
+    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
+    plt.ylim(1,1.3)
+    plt.savefig("ec2_2_"+str(num)+"_" + corr + ".png")
+
+def compare_ca(num_machines, distribution, corr):
+    
+    os.system("kill -9 $(pgrep acommdkp) > /dev/null 2>&1")
+    init_scheduler()
+    for i in range(0,num_machines):
+        add_machine("m"+str(i),64,256)
+    slogger.info("add colonies done!")
+
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+distribution + corr +'_tasks'+str(num_machines)+'.txt',64,256,num_machines,distribution)
+
+    i = 0
+    j=0
+    for index,request in requests.items():
+        pre_allocate(request)
+        allocate(request['id'])
+        if i == len(requests.items())/num_machines*2:
+            i =0
+            j+=1
+        i+=1
+    
+    slogger.info("pre allocate tasks done")
+    slogger.info("allocate tasks done")
+
+    time.sleep(0.1*num_machines)
+
+    # generate result quality
+    total_social_welfare = 0
+    for i in range(0,num_machines):
+#        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
+#        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
+        total_social_welfare += machines['m'+str(i)].social_welfare
+
+#    print("MDRA social_welfare: ",total_social_welfare);
+
+    # calculate ca-provision social welfare
+    ca_social_welfare = 0
+    vmbids = []
+    for index,request in requests.items():
+        vmbid = {}
+        num_vm = max(int(request['cpus']), math.ceil(float(request['mems'])/4))
+        vmbid['vms'] = num_vm
+        vmbid['bid'] = float(request['bid'])
+        vmbid['sort'] = float(request['bid'])/num_vm
+        vmbids.append(vmbid)
+    newlist = sorted(vmbids, key=lambda k: k['sort'],reverse=True)
+    total_capacity = 64 * num_machines
+    utilized = 0
+    for vmbid in newlist:
+#        print("ca bid: ",vmbid['vms'],"  ",vmbid['bid'])
+        utilized += vmbid['vms']
+        if utilized <= total_capacity:
+            ca_social_welfare += vmbid['bid']
+        else:
+            break
+
+#    print("ca social_welfare: ",ca_social_welfare)
+
+#    upper = relax_mdp(requests,64,256,num_machines)
+#    print("upper bound: ", upper)
+
+    stop_scheduler()
+    return total_social_welfare, ca_social_welfare
+
+def compare_ca_1(num_machines, distribution, corr):
+    sw1 = []
+    sw2 = []
+    num = num_machines
+    for i in range(1,num_machines):
+        times = int(num_machines/i)
+        sw1_i = 0
+        sw2_i = 0
+
+        for j in range(times):
+            generate_test_data(64,256,i,"reliable",distribution,corr,0)
+            sw1_i_j, sw2_i_j = compare_ca(i, distribution, corr)
+            sw1_i += sw1_i_j
+            sw2_i += sw2_i_j
+
+        sw1_i = sw1_i / times
+        sw2_i = sw2_i / times
+        print(i, " th sw: ", sw1_i, sw2_i, sw1_i/sw2_i)
+        sw1.append(sw1_i)
+        sw2.append(sw2_i)
+        
+
+
+    with open("/home/augustin/docklet/test_result/"+distribution+"_1_" +str(num) +"_"+corr+".txt",'w') as f:
+        for i in range(1,num_machines):
+            f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
+        f.flush()
+        os.fsync(f)
+
+    plt.clf()
+    plt.plot(range(1,num_machines), sw1, 'k-', label='MDRA', color='red')
+    plt.plot(range(1,num_machines), sw2, 'k--', label='CA-PROVISION', color='blue')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.legend(loc ='lower right')
+    plt.savefig(distribution+"_1_"+str(num)+"_"+corr+".png")
+    return
+
+def compare_ca_2(num, distribution, corr):
+    ratios = []
+    with open("/home/augustin/docklet/test_result/" + distribution + "_1_" +str(num)+"_" + corr + ".txt",'r') as f:
+        for line in f.readlines()[0:num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios.append(ratio)
+
+    plt.clf()
+    plt.plot(np.array(range(1,num)),np.array(ratios),'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('Improvement factor of Social welfare')
+    plt.ylim(1,2)
+#    plt.legend()
+    plt.savefig(distribution+"_2_"+str(num)+"_" + corr + ".png")
+
+def draw_ca(num, corr):
+    ratios = []
+    sw1 = []
+    sw2 = []
+    with open("/home/augustin/docklet/test_result/ca_1_" +str(num)+"_" + corr + ".txt",'r') as f:
+        for line in f.readlines()[0: num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios.append(ratio)
+            sw1.append(float(arr[0]))
+            sw2.append(float(arr[1]))
+
+    plt.clf()
+    plt.plot(range(1,100),sw1,'k-',label='MDRA', color='red')
+    plt.plot(range(1,100),sw2,'k--',label='EC2', color='blue')
+    plt.xlabel('number of machines')
+    plt.ylabel('social welfare')
+    plt.legend(loc ='upper left')
+    plt.savefig("ca_1_" + str(num) + "_" + corr + ".png")
+
+    plt.clf()
+    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
+    plt.xlabel('number of machines')
+    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
+    plt.ylim(1,2)
+    plt.savefig("ca_2_" + str(num)+ "_" + corr + ".png")
+    return
+
+def test_quality(num_machines, distribution, corr):
+    os.system("kill -9 $(pgrep acommdkp) > /dev/null 2>&1")
     init_scheduler()
     for i in range(0,num_machines):
         add_machine("m"+str(i),64,256)
@@ -473,7 +797,7 @@ def test_quality(num_machines,request_type):
 #    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
 #    generate_test_data(64,256,1,"restricted",192)
 
-    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',64,256,num_machines,request_type)
+    requests = parse_test_data("/home/augustin/docklet/test_data/"+distribution +corr+'_tasks'+str(num_machines)+'.txt',64,256,num_machines, distribution)
 
     i = 0
     j=0
@@ -481,8 +805,8 @@ def test_quality(num_machines,request_type):
         pre_allocate(request)
         allocate(request['id'])
         if i == len(requests.items())/num_machines/2:
-            time.sleep(1)
-            print("part ",j, " done")
+#            time.sleep(1)
+#            print("part ",j, " done")
             i =0
             j+=1
         i+=1
@@ -490,278 +814,91 @@ def test_quality(num_machines,request_type):
     slogger.info("pre allocate tasks done")
     slogger.info("allocate tasks done")
 
-    time.sleep(10)
+    time.sleep(0.1 * num_machines)
 
     # generate result quality
     total_social_welfare = 0
     for i in range(0,num_machines):
         total_social_welfare += machines['m'+str(i)].social_welfare
     stop_scheduler()
-    print("MDRPSPA social_welfare: ",total_social_welfare);
+#    print("MDRA social_welfare: ",total_social_welfare);
 
     return total_social_welfare
 #    upper = relax_mdp(requests,64,256,num_machines)
 #    print("upper bound: ", upper)
-
-
-def test_generate_test_data(num,request_type):
-    for i in range(1,num+1):
-        print(i)
-        generate_test_data(64,256,i,"reliable",request_type,0)
-
-def test_compare_ec2(num_machines, request_type):
-    os.system("kill -9 $(pgrep acommdkp)")
-    time.sleep(1)
-    init_scheduler()
-    for i in range(0,num_machines):
-        add_machine("m"+str(i),256,480)
-    slogger.info("add colonies done!")
-    time.sleep(1)
-    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',256,480,num_machines,request_type)
-
-    i = 0
-    j=0
-    for index,request in requests.items():
-        pre_allocate(request)
-        allocate(request['id'])
-        if i == len(requests.items())/num_machines*2:
-            time.sleep(0.5)
-            print("part ",j, " done")
-            i =0
-            j+=1
-        i+=1
-
-    slogger.info("pre allocate tasks done")
-    slogger.info("allocate tasks done")
-
-    time.sleep(10)
-
-    # generate result quality
-    total_social_welfare = 0
-    for i in range(0,num_machines):
-        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
-        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
-        total_social_welfare += machines['m'+str(i)].social_welfare
-
-    print("MDRPSPA social_welfare: ",total_social_welfare);
-    ec2_social_welfare = 0
-    newlist = sorted(list(requests.values()), key=lambda k: k['bid'],reverse=True)
-    for i in range(0,32*num_machines):
-        ec2_social_welfare += int(newlist[i]['bid'])
-
-    print("ec2 social_welfare: ",ec2_social_welfare)
-#    upper = relax_mdp(requests,256,480,num_machines)
-#    print("upper bound: ", upper)
-
-    stop_scheduler()
-    return total_social_welfare, ec2_social_welfare
-
-def test_compare_ca(num_machines, request_type):
     
-    os.system("kill -9 $(pgrep acommdkp)")
-    time.sleep(3)
-    init_scheduler()
-    for i in range(0,num_machines):
-        add_machine("m"+str(i),128,256)
-    slogger.info("add colonies done!")
-    time.sleep(1)
-    requests = parse_test_data("/home/augustin/docklet/test_data/"+request_type+'_tasks'+str(num_machines)+'.txt',128,256,num_machines,request_type)
-
-    i = 0
-    j=0
-    for index,request in requests.items():
-        pre_allocate(request)
-        allocate(request['id'])
-        if i == len(requests.items())/num_machines*2:
-            time.sleep(0.5)
-            print("part ",j, " done")
-            i =0
-            j+=1
-        i+=1
-    
-    slogger.info("pre allocate tasks done")
-    slogger.info("allocate tasks done")
-
-    time.sleep(10)
-
-    # generate result quality
-    total_social_welfare = 0
-    for i in range(0,num_machines):
-#        print('m'+str(i)+": social_welfare", machines['m'+str(i)].social_welfare)
-#        print('m'+str(i)+": heu", machines['m'+str(i)].placement_heu)
-        total_social_welfare += machines['m'+str(i)].social_welfare
-
-    print("MDRA social_welfare: ",total_social_welfare);
-
-    # calculate ca-provision social welfare
-    ca_social_welfare = 0
-    vmbids = []
-    for index,request in requests.items():
-        vmbid = {}
-        num_vm = max(int(request['cpus']), math.ceil(float(request['mems'])/2))
-        vmbid['vms'] = num_vm
-        vmbid['bid'] = float(request['bid'])
-        vmbid['sort'] = float(request['bid'])/num_vm
-        vmbids.append(vmbid)
-    newlist = sorted(vmbids, key=lambda k: k['sort'],reverse=True)
-    total_capacity = 128 * num_machines
-    utilized = 0
-    for vmbid in newlist:
-#        print("ca bid: ",vmbid['vms'],"  ",vmbid['bid'])
-        utilized += vmbid['vms']
-        if utilized <= total_capacity:
-            ca_social_welfare += vmbid['bid']
-        else:
-            break
-
-    print("ca social_welfare: ",ca_social_welfare)
-#    upper = relax_mdp(requests,256,480,num_machines)
-#    print("upper bound: ", upper)
-
-    stop_scheduler()
-    return total_social_welfare, ca_social_welfare
-
-def test_compare_ca_stable(num_machines, request_type):
-    times = int(100/num_machines)
-
-    a = 0
-    b = 0 
-    for i in range(times):
-        print("machines: ", num_machines," times: ", i)
-        generate_test_data(128,256,num_machines,"reliable",'ca',0)
-        ia,ib = test_compare_ca(num_machines,request_type)
-        a +=ia
-        b +=ib
-    a = a/times
-    b = b/times
-    print("final result: ", a, b, a/b)
-    return a,b,a/b
-    
-def generate_test11_result(num):
-    sw1 = []
-    sw2 = []
-    for i in range(1,num):
-        generate_test_data(256,480,i,"reliable",'ec2',0)
-        i_sw1,i_sw2 = test_compare_ec2(i,'ec2')
-        sw1.append(i_sw1)
-        sw2.append(i_sw2)
-    plt.plot(range(1,num),sw1,color='red')
-    plt.plot(range(1,num),sw2,color='blue')
-    plt.xlabel('number of machines')
-    plt.ylabel('social welfare')
-    plt.title('Compare Social Welfare of  MDRPSPA with EC2')
-    plt.legend()
-    plt.savefig("result1.png")
-
-    with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'w') as f:
-        for i in range(1,num):
-            f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
-        f.flush()
-        os.fsync(f)
-
-def generate_test12_result():
-    ratios = []
-    with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'r') as f:
-        for line in f.readlines()[0:99]:
-            arr = line.split()
-            ratio = float(arr[0])/float(arr[1])
-            ratios.append(ratio)
-
-    print(len(ratios))
-    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
-    plt.xlabel('number of machines')
-    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
-    plt.title('Ratio of Social Welfare of  MDRPSPA to EC2')
-    plt.savefig("result12.png")
-
-def draw_test1_result():
-    ratios = []
-    sw1 = []
-    sw2 = []
-    with open("/home/augustin/docklet/test_result/compare_with_ec2.txt",'r') as f:
-        for line in f.readlines()[0:99]:
-            arr = line.split()
-            ratio = float(arr[0])/float(arr[1])
-            ratios.append(ratio)
-            sw1.append(float(arr[0]))
-            sw2.append(float(arr[1]))
-
-    plt.figure(1)
-    plt.plot(range(1,100),sw1,'k-',label='MDRPSPA')
-    plt.plot(range(1,100),sw2,'k--',label='EC2')
-    plt.xlabel('number of machines')
-    plt.ylabel('social welfare')
-    plt.title('Compare Social Welfare of  MDRPSPA with EC2')
-    plt.legend(loc ='upper left')
-    plt.savefig("result1_1.png")
-
-
-    plt.figure(2)
-    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
-    plt.xlabel('number of machines')
-    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
-    plt.title('Ratio of Social Welfare of  MDRPSPA to EC2')
-    plt.savefig("result1_2.png")
-
-
-def generate_test21_result():
+def quality_mdra(num_machines, distribution, corr):
     arr = list(range(1,21))
-    arr.append(30)
-    arr.append(40)
-    arr.append(50)
+#    arr.append(30)
+#    arr.append(40)
+#    arr.append(50)
+    arr.append(60)
     arr.append(100)
     result = {}
     for i in arr:
-        result[i] =test_quality(i,'uniform')
+        times = int(num_machines/i)
+        sw_i = 0
+        for j in range(times):
+            sw_i += test_quality(i,distribution, corr)
+        sw_i = sw_i / times
+        result[i] = sw_i
+        print(i," th sw: ", sw_i)
 
     # write to a file
-    with open("/home/augustin/docklet/test_result/quality_uniform_mdrpspa1.txt",'w') as f:
+    with open('/home/augustin/docklet/test_result/quality_mdra_'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','w') as f:    
         for key, task in result.items():
             f.write(str(key) + ' '+ str(result[key]) + '\n')
-
         f.flush()
         os.fsync(f)
     return
 
-def draw_test2_result():
+def generate_quality_data(num_machines, distribution, corr):
+    os.system("kill -9 $(pgrep acommdkp) > /dev/null 2>&1")
+#    for i in range(1, num_machines+1):
+#        generate_test_data(64,256,i,"reliable",distribution,corr,0)
+
+#    quality_mdra(num_machines,distribution,corr)
+    os.system("sudo python3 aco-mmdkp/quality_test.py uniform cov0")
+    
+def draw_quality(num_machines, distribution, corr):
+
     x = list(range(1,21))
     x.append(30)
     x.append(40)
     x.append(50)
+    x.append(80)
     x.append(100)
     sw1 = []
     sw2 = []
-    with open('/home/augustin/docklet/test_result/quality_uniform_mdrpspa1.txt','r') as f:
-        for line in f.readlines()[0:24]:
+    with open('/home/augustin/docklet/test_result/quality_mdra_'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','r') as f:
+        for line in f.readlines()[0:num_machines]:
             arr = line.split()
             sw1.append(arr[1])
 
-    with open('/home/augustin/docklet/test_result/quality_uniform_opt1.txt','r') as f:
-        for line in f.readlines()[0:24]:
+    with open('/home/augustin/docklet/test_result/quality_opt_'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','r') as f:
+        for line in f.readlines()[0:num_machines]:
             arr = line.split()
             sw2.append(arr[1])
 
-    plt.figure(1)
+    plt.clf()
     plt.plot(x,sw1,'k-', label='MDRPSPAA')
     plt.plot(x,sw2,'k--', label='Upper Bound')
     plt.xlabel('number of machines')
     plt.ylabel('social welfare')
-    plt.title('Compare Social Welfare of  MDRPSPAA with Upper Bound')
     plt.legend(loc='upper left')
-    plt.savefig("result2_1.png")
+    plt.savefig('quality_1_'+distribution +'_'+corr+'_'+str(num_machines)+".png")
 
     ratios = []
     for i,v in enumerate(x):
         ratios.append(float(sw1[i]) / float(sw2[i]))
 
-    plt.figure(2)
+    plt.clf()
     plt.plot(x,ratios,'k-')
     plt.xlabel('number of machines')
-    plt.ylabel('ratio of MDRPSPAA to Upper Bound')
-    plt.title('Ratio of  Social Welfare of  MDRPSPA to Upper Bound')
-    plt.savefig("result2_2.png")
+    plt.ylabel('ratio of social welfare of MDRA to Upper Bound')
+    plt.savefig('quality_2_'+distribution +'_'+corr+'_'+str(num_machines)+".png")
 
-    with open("/home/augustin/docklet/test_result/quality_uniform1.txt",'w') as f:
+    with open('/home/augustin/docklet/test_result/quality_mdra_opt'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','w') as f:
         for i,v in enumerate(x):
             f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
         f.flush()
@@ -890,8 +1027,27 @@ if __name__ == '__main__':
 #    test_all();
 #    generate_multivariate_ca(128,256,100)
 #    generate_test_data(128,256,100,"reliable",'ca',0)
-#    generate_test11_result()
-#    generate_test12_result()
+
+# ec2    
+#    generate_ec2_1(10,'cov0')
+#    generate_ec2_2(10,'cov0')
+#    generate_ec2_1(10,'cov1')
+#    generate_ec2_2(10,'cov1')
+#    generate_ec2_1(10,'cov_opt')
+#    generate_ec2_2(10,'cov_opt')
+#    draw_ec2(100,'cov0')
+
+# ca
+#    compare_ca_1(10,'ca','cov0')
+#    compare_ca_2(10,'ca','corr0')
+#    compare_ca_1(10,'ca','corr1')
+#    compare_ca_2(10,'ca','corr1')
+#    compare_ca_1(10,'ca','corr_opt')
+#    compare_ca_2(10,'ca','corr_opt')
+#    draw_ca(100,'corr_opt')
+
+# quality
+    generate_quality_data(100,'uniform','corr0')
 #    draw_test2_result()
 #    draw_test1_result()
 #    test_time()
@@ -901,7 +1057,7 @@ if __name__ == '__main__':
 #    generate_test_data(256,480,100,"reliable",'ec2',0)
 #    i_sw1,i_sw2 = test_compare_ec2(100,'ec2')
 #    generate_multivariate_uniform_optimal(128,256,512)
-    test_compare_ca_stable(50,'ca')
+#    test_compare_ca_stable(50,'ca')
 #    i_sw1,i_sw2 = test_compare_ca_stable(1,'ca')
 #    for i in range(1,101):
 #        print(i)
