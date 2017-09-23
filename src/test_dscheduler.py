@@ -279,27 +279,27 @@ def relax_mdp(tasks,cpus,mems,machines):
     return opt[cpus][mems]
 
 
-cov0 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+corr0 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
-cov1 = [[1, 0.9, 0.9], [0.9, 1, 0.9], [0.9, 0.9, 1]]
+corr1 = [[1, 0.9, 0.9], [0.9, 1, 0.9], [0.9, 0.9, 1]]
 
-#cov1 = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
-
-
-cov2 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+#corr1 = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
 
-cov05 = [[1, -0.5, 0.5, -0.5], [-0.5, 1, -0.5, 0.5], [0.5, -0.5, 1, -0.5], [-0.5, 0.5, -0.5, 1]]
+corr2 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
-cov_opt = [[1, -0.9, 0.9, -0.9], [-0.9, 1, -0.9, 0.9], [0.9, -0.9, 1, -0.9], [-0.9, 0.9, -0.9, 1]]
 
-cov00 = [[1, 0, 0.5, -0.5], [0, 1, 0, 0.5], [0.5, 0, 1, 0], [0, 0.5, 0, 1]]
+corr05 = [[1, -0.5, 0.5, -0.5], [-0.5, 1, -0.5, 0.5], [0.5, -0.5, 1, -0.5], [-0.5, 0.5, -0.5, 1]]
+
+corr_opt = [[1, -0.9, 0.9, -0.9], [-0.9, 1, -0.9, 0.9], [0.9, -0.9, 1, -0.9], [-0.9, 0.9, -0.9, 1]]
+
+corr00 = [[1, 0, 0.5, -0.5], [0, 1, 0, 0.5], [0.5, 0, 1, 0], [0, 0.5, 0, 1]]
 
 def generate_uniform_opt(cpu,mem,num_tasks):
     mean = [0, 0, 0, 0]
 
-    cov = cov_opt
-    a,b,c,d = np.random.multivariate_normal(mean, cov, num_tasks).T
+    corr = corr_opt
+    a,b,c,d = np.random.multivariate_normal(mean, corr, num_tasks).T
 #    for i,ia in enumerate(a):
 #        print(a[i],b[i],c[i],d[i],'\n')
 
@@ -324,13 +324,13 @@ def generate_uniform_opt(cpu,mem,num_tasks):
 
 def generate_uniform(cpu,mem,num_tasks,corr):
     mean = [0, 0, 0]
-    if corr == 'cov0':
-        cov = cov0
-    elif corr == 'cov1':
-        cov = cov1
-    elif corr == 'cov2':
-        cov = cov2
-    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+    if corr == 'corr0':
+        corr = corr0
+    elif corr == 'corr1':
+        corr = corr1
+    elif corr == 'corr2':
+        corr = corr2
+    x, y, z = np.random.multivariate_normal(mean, corr, num_tasks).T
 
 #    print(np.corrcoef([x,y,z]))
     cpus = []
@@ -350,8 +350,8 @@ def generate_uniform(cpu,mem,num_tasks,corr):
 
 def generate_multivariate_binomial(cpu,mem,num_tasks):
     mean = [0, 0, 0]
-    cov = [[1, -0.5, -0.5], [-0.5, 1, -0.5], [-0.5, -0.5, 1]]
-    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+    corr = [[1, -0.5, -0.5], [-0.5, 1, -0.5], [-0.5, -0.5, 1]]
+    x, y, z = np.random.multivariate_normal(mean, corr, num_tasks).T
 
     cpus = []
     mems = []
@@ -370,13 +370,13 @@ def generate_multivariate_binomial(cpu,mem,num_tasks):
 
 def generate_ec2(cpu,mem,num_tasks,corr):
     mean = [0, 0, 0]
-    if corr == 'cov0':
-        cov = cov0
-    elif corr == 'cov1':
-        cov = cov1
-    elif corr == 'cov2':
-        cov = cov2
-    x, y, z = np.random.multivariate_normal(mean, cov, num_tasks).T
+    if corr == 'corr0':
+        corr = corr0
+    elif corr == 'corr1':
+        corr = corr1
+    elif corr == 'corr2':
+        corr = corr2
+    x, y, z = np.random.multivariate_normal(mean, corr, num_tasks).T
 
     cpus = []
     mems = []
@@ -398,8 +398,8 @@ def generate_ec2(cpu,mem,num_tasks,corr):
 def generate_ec2_opt(cpu,mem,num_tasks):
 
     mean = [0, 0, 0, 0]
-    cov = cov_opt
-    a,b,c,d = np.random.multivariate_normal(mean, cov, num_tasks).T
+    corr = corr_opt
+    a,b,c,d = np.random.multivariate_normal(mean, corr, num_tasks).T
 #    for i,ia in enumerate(a):
 #        print(a[i],b[i],c[i],d[i],'\n')
 
@@ -433,7 +433,7 @@ def generate_test_data(cpu,mem,machines,request_type,distribution,corr,id_base):
         num_tasks = int(32 * machines)
 #        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
-        if corr == 'cov_opt':
+        if corr == 'corr_opt':
             cpu_arr,mem_arr,bids = generate_uniform_opt(cpu,mem,num_tasks)
         else:
             cpu_arr,mem_arr,bids = generate_uniform(cpu,mem,num_tasks, corr)
@@ -442,14 +442,14 @@ def generate_test_data(cpu,mem,machines,request_type,distribution,corr,id_base):
         num_tasks = int(cpu/4 * machines)
 #        cpu_arr = np.random.uniform(1,cpu,cpu*machines)
 #        mem_arr = np.random.uniform(1,mem,cpu*machines)
-        if corr == 'cov_opt':
+        if corr == 'corr_opt':
             cpu_arr, mem_arr,bids = generate_ec2_opt(cpu,mem,num_tasks)
         else:
             cpu_arr, mem_arr,bids = generate_ec2(cpu,mem,num_tasks,corr)            
 
     elif distribution == 'ca':
         num_tasks = int(32 * machines)
-        if corr == 'cov_opt':
+        if corr == 'corr_opt':
             cpu_arr,mem_arr,bids = generate_uniform_opt(cpu,mem,num_tasks)
         else:
             cpu_arr,mem_arr,bids = generate_uniform(cpu,mem,num_tasks, corr)
@@ -829,10 +829,13 @@ def test_quality(num_machines, distribution, corr):
     
 def quality_mdra(num_machines, distribution, corr):
     arr = list(range(1,21))
-#    arr.append(30)
-#    arr.append(40)
-#    arr.append(50)
+    arr.append(30)
+    arr.append(40)
+    arr.append(50)
     arr.append(60)
+    arr.append(70)
+    arr.append(80)
+    arr.append(90)
     arr.append(100)
     result = {}
     for i in arr:
@@ -854,11 +857,11 @@ def quality_mdra(num_machines, distribution, corr):
 
 def generate_quality_data(num_machines, distribution, corr):
     os.system("kill -9 $(pgrep acommdkp) > /dev/null 2>&1")
-#    for i in range(1, num_machines+1):
-#        generate_test_data(64,256,i,"reliable",distribution,corr,0)
+    for i in range(1, num_machines+1):
+        generate_test_data(64,256,i,"reliable",distribution,corr,0)
 
-#    quality_mdra(num_machines,distribution,corr)
-    os.system("sudo python3 aco-mmdkp/quality_test.py uniform cov0")
+    quality_mdra(num_machines,distribution,corr)
+#    os.system("sudo python3 aco-mmdkp/quality_test.py "+distribution + " "+corr)
     
 def draw_quality(num_machines, distribution, corr):
 
@@ -866,8 +869,12 @@ def draw_quality(num_machines, distribution, corr):
     x.append(30)
     x.append(40)
     x.append(50)
+    x.append(60)
+    x.append(70)
     x.append(80)
+    x.append(90)
     x.append(100)
+    
     sw1 = []
     sw2 = []
     with open('/home/augustin/docklet/test_result/quality_mdra_'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','r') as f:
@@ -1029,16 +1036,16 @@ if __name__ == '__main__':
 #    generate_test_data(128,256,100,"reliable",'ca',0)
 
 # ec2    
-#    generate_ec2_1(10,'cov0')
-#    generate_ec2_2(10,'cov0')
-#    generate_ec2_1(10,'cov1')
-#    generate_ec2_2(10,'cov1')
-#    generate_ec2_1(10,'cov_opt')
-#    generate_ec2_2(10,'cov_opt')
-#    draw_ec2(100,'cov0')
+#    generate_ec2_1(10,'corr0')
+#    generate_ec2_2(10,'corr0')
+#    generate_ec2_1(10,'corr1')
+#    generate_ec2_2(10,'corr1')
+#    generate_ec2_1(10,'corr_opt')
+#    generate_ec2_2(10,'corr_opt')
+#    draw_ec2(100,'corr0')
 
 # ca
-#    compare_ca_1(10,'ca','cov0')
+#    compare_ca_1(10,'ca','corr0')
 #    compare_ca_2(10,'ca','corr0')
 #    compare_ca_1(10,'ca','corr1')
 #    compare_ca_2(10,'ca','corr1')
@@ -1047,7 +1054,8 @@ if __name__ == '__main__':
 #    draw_ca(100,'corr_opt')
 
 # quality
-    generate_quality_data(100,'uniform','corr0')
+    generate_quality_data(100,'uniform','corr1')
+    generate_quality_data(100,'uniform','corr_opt')
 #    draw_test2_result()
 #    draw_test1_result()
 #    test_time()
