@@ -85,7 +85,7 @@ long int compute_relax_opt(){
 void writefile(long int result){
   FILE * fp;
   char filename[100];
-  sprintf(filename, "/home/augustin/docklet/test_result/quality_opt_%s_%s_%d.txt", DIS, CORR, 100); 
+  sprintf(filename, "../../test_result/quality_opt_%s_%s_%d.txt", DIS, CORR, 100); 
   if((fp=fopen(filename,"a"))==NULL){
     printf("Cannot open file strike any key exit!");
     exit(1);
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
   //init_tasks();
   printf("machines: %d \n",MACHINES);
   char buffer[100];
-  sprintf(buffer,"/home/augustin/docklet/test_data/%s%s_tasks%d.txt",DIS,CORR,MACHINES);
+  sprintf(buffer,"../../test_data/%s%s_tasks%d.txt",DIS,CORR,MACHINES);
   printf("%s",buffer);
   tasks = parse(buffer);
   long int result = compute_relax_opt();
