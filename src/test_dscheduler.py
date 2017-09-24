@@ -120,11 +120,13 @@ def pre_allocate(task):
             utilized_cpus = 0
             utilized_mems = 0
             lowest_heu = 0.01
+
             for task in sorted_heu:
                 if utilized_cpus + int(task['cpus']) < machine.reliable_cpus and utilized_mems + int(task['mems']) < machine.reliable_mems:
                     lowest_heu = task['heu']
                     utilized_cpus += int(task['cpus'])
                     utilized_mems += int(task['mems'])
+
                 else:
                     break
 
@@ -132,7 +134,6 @@ def pre_allocate(task):
             machine.mem_value = lowest_heu
 
             machine.rareness_ratio = ((machine.reliable_mems ** 2) * utilized_cpus) / ((machine.reliable_cpus ** 2) * utilized_mems)
-            
             
 #        time.sleep(0.1)
     else:
@@ -537,7 +538,7 @@ def test_compare_ec2(num_machines, distribution, corr):
     slogger.info("pre allocate tasks done")
     slogger.info("allocate tasks done")
 
-    time.sleep(0.1 * num_machines)
+    time.sleep(max(1,0.1 * num_machines))
 
     # generate result quality
     total_social_welfare = 0
@@ -588,12 +589,12 @@ def generate_ec2_1(num, corr):
         f.flush()
         os.fsync(f)
 
-    plt.figure(1,figsize=(8,4))
+    plt.clf()
     plt.plot(range(1,num), sw1, 'k-', label='MDRA', color='red')
     plt.plot(range(1,num), sw2, 'k--', label='EC2', color='blue')
     plt.xlabel('number of machines')
     plt.ylabel('social welfare')
-    plt.legend(loc ='upper left')
+    plt.legend(loc ='lower right')
     plt.savefig("ec2_1_"+str(num)+"_"+corr+".png")
 
 def generate_ec2_2(num, corr):
@@ -639,6 +640,38 @@ def draw_ec2(num, corr):
     plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
     plt.ylim(1,1.3)
     plt.savefig("ec2_2_"+str(num)+"_" + corr + ".png")
+
+def draw_ec2_all(num):
+    ratios1 = []
+    ratios2 = []
+    ratios3 = []
+    with open("/home/augustin/docklet/test_result/ec2_1_100_corr0.txt",'r') as f:
+        for line in f.readlines()[0: num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios1.append(ratio)
+
+    with open("/home/augustin/docklet/test_result/ec2_1_100_corr1.txt",'r') as f:
+        for line in f.readlines()[0: num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios2.append(ratio)
+
+    with open("/home/augustin/docklet/test_result/ec2_1_100_corr_opt.txt",'r') as f:
+        for line in f.readlines()[0: num]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios3.append(ratio)            
+
+    plt.clf()
+    plt.plot(range(1,100),ratios3,'k-',label='bids_type_2', color='red')
+    plt.plot(range(1,100),ratios1,'k--',label='bids_type_0', color='blue')
+    plt.plot(range(1,100),ratios2,'k-.',label='bids_type_1', color='purple')
+
+    plt.xlabel('number of machines')
+    plt.ylabel('Ratio of Social Welfare of MDRA to EC2')
+    plt.ylim(1,1.4)
+    plt.savefig("ec2_2_all.png")
 
 def compare_ca(num_machines, distribution, corr):
     
@@ -780,9 +813,44 @@ def draw_ca(num, corr):
     plt.clf()
     plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
     plt.xlabel('number of machines')
-    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
+    plt.ylabel('Ratio of Social welfare of MDRPSPA to CA-PROVISION')
     plt.ylim(1,2)
     plt.savefig("ca_2_" + str(num)+ "_" + corr + ".png")
+    return
+
+def draw_ca_all():
+    ratios1 = []
+    ratios2 = []
+    ratios3 = []
+    with open("/home/augustin/docklet/test_result/ca_1_100_corr0.txt",'r') as f:
+        for line in f.readlines()[0: 100]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios1.append(ratio)
+
+    with open("/home/augustin/docklet/test_result/ca_1_100_corr1.txt",'r') as f:
+        for line in f.readlines()[0: 100]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios2.append(ratio)
+
+    with open("/home/augustin/docklet/test_result/ca_1_100_corr_opt.txt",'r') as f:
+        for line in f.readlines()[0: 100]:
+            arr = line.split()
+            ratio = float(arr[0])/float(arr[1])
+            ratios3.append(ratio)            
+
+    plt.clf()
+    plt.plot(range(1,100),ratios3,'k-',label='bids_type_2', color='red')
+    plt.plot(range(1,100),ratios1,'k--',label='bids_type_0', color='blue')
+    plt.plot(range(1,100),ratios2,'k-.',label='bids_type_1', color='purple')
+
+    plt.xlabel('number of machines')
+    plt.ylabel('Ratio of Social Welfare of MDRA to CA-PROVISION')
+    plt.ylim(1,1.6)
+    plt.legend(loc ='upper right')
+    plt.savefig("ca_2_all.png")
+    
     return
 
 def test_quality(num_machines, distribution, corr):
@@ -791,7 +859,7 @@ def test_quality(num_machines, distribution, corr):
     for i in range(0,num_machines):
         add_machine("m"+str(i),64,256)
 
-#    Time.sleep(1)
+#    time.sleep(1)
     slogger.info("add colonies done!")
 
 #    requests = generate_test_data(64,256,2,"reliable",'uniform',0)
@@ -814,19 +882,20 @@ def test_quality(num_machines, distribution, corr):
     slogger.info("pre allocate tasks done")
     slogger.info("allocate tasks done")
 
-    time.sleep(0.1 * num_machines)
+    time.sleep(max(1, 0.1 * num_machines))
 
     # generate result quality
     total_social_welfare = 0
     for i in range(0,num_machines):
         total_social_welfare += machines['m'+str(i)].social_welfare
     stop_scheduler()
-#    print("MDRA social_welfare: ",total_social_welfare);
+    print("MDRA social_welfare: ",total_social_welfare);
 
-    return total_social_welfare
+
 #    upper = relax_mdp(requests,64,256,num_machines)
 #    print("upper bound: ", upper)
-    
+    return total_social_welfare
+
 def quality_mdra(num_machines, distribution, corr):
     arr = list(range(1,21))
     arr.append(30)
@@ -888,11 +957,11 @@ def draw_quality(num_machines, distribution, corr):
             sw2.append(arr[1])
 
     plt.clf()
-    plt.plot(x,sw1,'k-', label='MDRPSPAA')
-    plt.plot(x,sw2,'k--', label='Upper Bound')
+    plt.plot(x,sw1,'k-', label='MDRA', color='red')
+    plt.plot(x,sw2,'k--', label='Upper Bound', color='blue')
     plt.xlabel('number of machines')
     plt.ylabel('social welfare')
-    plt.legend(loc='upper left')
+    plt.legend(loc='lower right')
     plt.savefig('quality_1_'+distribution +'_'+corr+'_'+str(num_machines)+".png")
 
     ratios = []
@@ -903,15 +972,55 @@ def draw_quality(num_machines, distribution, corr):
     plt.plot(x,ratios,'k-')
     plt.xlabel('number of machines')
     plt.ylabel('ratio of social welfare of MDRA to Upper Bound')
+    plt.ylim(0,1)
     plt.savefig('quality_2_'+distribution +'_'+corr+'_'+str(num_machines)+".png")
 
-    with open('/home/augustin/docklet/test_result/quality_mdra_opt'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','w') as f:
+    with open('/home/augustin/docklet/test_result/quality_mdra_opt_'+distribution +'_'+corr+'_'+str(num_machines)+'.txt','w') as f:
         for i,v in enumerate(x):
             f.write(str(sw1[i-1])+' '+str(sw2[i-1])+'\n')
         f.flush()
         os.fsync(f)
 
     return
+
+def draw_quality_all():
+    x = list(range(1,21))
+    x.append(30)
+    x.append(40)
+    x.append(50)
+    x.append(60)
+    x.append(70)
+    x.append(80)
+    x.append(90)
+    x.append(100)
+    swr1 = []
+    swr2 = []
+    swr3 = []
+    with open('/home/augustin/docklet/test_result/quality_mdra_opt_uniform_corr0_100.txt','r') as f:
+        for line in f.readlines()[0:100]:
+            arr = line.split()
+            swr1.append(float(arr[0]) / float(arr[1]))
+
+    with open('/home/augustin/docklet/test_result/quality_mdra_opt_uniform_corr1_100.txt','r') as f:
+        for line in f.readlines()[0:100]:
+            arr = line.split()
+            swr2.append(float(arr[0]) / float(arr[1]))
+
+    with open('/home/augustin/docklet/test_result/quality_mdra_opt_uniform_corr_opt_100.txt','r') as f:
+        for line in f.readlines()[0:100]:
+            arr = line.split()
+            swr3.append(float(arr[0]) / float(arr[1]))
+
+
+    plt.clf()
+    plt.plot(x,swr1,'k-', label='bids_type_0', color='red')
+    plt.plot(x,swr2,'k--', label='bids_type_1', color='blue')
+    plt.plot(x,swr3,'k-.', label='bids_type_2', color='purple')
+    plt.xlabel('number of machines')
+    plt.ylabel('ratio of social welfare of MDRA to Upper Bound')
+    plt.ylim(0.9,1)
+    plt.legend(loc='lower right')
+    plt.savefig('quality_2_all.png')
 
 def test_time_each(num_machines,request_type):
     os.system("kill -9 $(pgrep acommdkp)")
@@ -1036,29 +1145,43 @@ if __name__ == '__main__':
 #    generate_test_data(128,256,100,"reliable",'ca',0)
 
 # ec2    
-#    generate_ec2_1(10,'corr0')
-#    generate_ec2_2(10,'corr0')
-#    generate_ec2_1(10,'corr1')
+#    generate_ec2_1(100,'corr0')
+#    generate_ec2_1(100,'corr1')
+#    generate_ec2_1(100,'corr_opt')
 #    generate_ec2_2(10,'corr1')
 #    generate_ec2_1(10,'corr_opt')
 #    generate_ec2_2(10,'corr_opt')
-#    draw_ec2(100,'corr0')
+    draw_ec2_all(100)
 
 # ca
-#    compare_ca_1(10,'ca','corr0')
+#    compare_ca_1(100,'ca','corr0')
 #    compare_ca_2(10,'ca','corr0')
-#    compare_ca_1(10,'ca','corr1')
+#    compare_ca_1(100,'ca','corr1')
 #    compare_ca_2(10,'ca','corr1')
-#    compare_ca_1(10,'ca','corr_opt')
+#    compare_ca_1(100,'ca','corr_opt')
 #    compare_ca_2(10,'ca','corr_opt')
 #    draw_ca(100,'corr_opt')
+    draw_ca_all()
 
 # quality
-    generate_quality_data(100,'uniform','corr0')
+#    generate_quality_data(100,'uniform','corr0')
 #    generate_quality_data(100,'uniform','corr1')
 #    generate_quality_data(100,'uniform','corr_opt')
-#    draw_test2_result()
-#    draw_test1_result()
+
+#    test_quality(1, 'uniform', 'corr_opt')
+#    draw_quality(100,'uniform','corr0')
+#    draw_quality(100,'uniform','corr1')
+#    draw_quality(100,'uniform','corr_opt')
+#    draw_quality_all()
+
+#tmp
+#    times = 100
+#    sw_i = 0
+#    for j in range(times):
+#        sw_i += test_quality(1, 'uniform', 'corr_opt')
+#    sw_i = sw_i / times
+#    print("result", sw_i)
+    
 #    test_time()
 #    test_time_quality(100,'uniform')
 #    for i in range(0,10):

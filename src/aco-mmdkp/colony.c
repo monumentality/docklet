@@ -57,7 +57,7 @@ Colony *init_colony(char *colonyid, GHashTable *tasks,int n_ant,int cpus, int me
   colony->beta =2;
   colony->rho = 0.2;
   colony->xi = 0.2;
-  colony->q0 = 0.5;
+  colony->q0 = 0.3;
   return colony;
 }
 void * destroy_colony(Colony *colony){
@@ -183,7 +183,7 @@ void * choose(Colony *colony, int i_ant){
 	    break;
 	  }
         }
-      // q1<=q0时，轮盘赌
+      // q1>=q0时，轮盘赌
       else
         {
           Task * chosen =NULL;
