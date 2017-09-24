@@ -628,7 +628,7 @@ def draw_ec2(num, corr):
 
     plt.clf()
     plt.plot(range(1,num), sw1, 'k-', label='MDRA', color='red')
-    plt.plot(range(1,num), sw2, 'k--', label='EC2', color='blue')
+    plt.plot(range(1,num), sw2, 'k--', label='SPOT-C3-2XL', color='blue')
     plt.xlabel('number of machines')
     plt.ylabel('social welfare')
     plt.legend(loc ='lower right')
@@ -671,6 +671,7 @@ def draw_ec2_all(num):
     plt.xlabel('number of machines')
     plt.ylabel('Ratio of Social Welfare of MDRA to EC2')
     plt.ylim(1,1.4)
+    plt.legend(loc ='lower right')
     plt.savefig("ec2_2_all.png")
 
 def compare_ca(num_machines, distribution, corr):
@@ -790,7 +791,7 @@ def compare_ca_2(num, distribution, corr):
 #    plt.legend()
     plt.savefig(distribution+"_2_"+str(num)+"_" + corr + ".png")
 
-def draw_ca(num, corr):
+def draw_ca(num, dis, corr):
     ratios = []
     sw1 = []
     sw2 = []
@@ -803,20 +804,21 @@ def draw_ca(num, corr):
             sw2.append(float(arr[1]))
 
     plt.clf()
-    plt.plot(range(1,100),sw1,'k-',label='MDRA', color='red')
-    plt.plot(range(1,100),sw2,'k--',label='EC2', color='blue')
+    plt.plot(range(1,num), sw1, 'k-', label='MDRA', color='red')
+    plt.plot(range(1,num), sw2, 'k--', label='CA-PROVISION', color='blue')
     plt.xlabel('number of machines')
     plt.ylabel('social welfare')
-    plt.legend(loc ='upper left')
-    plt.savefig("ca_1_" + str(num) + "_" + corr + ".png")
-
-    plt.clf()
-    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
-    plt.xlabel('number of machines')
-    plt.ylabel('Ratio of Social welfare of MDRPSPA to CA-PROVISION')
-    plt.ylim(1,2)
-    plt.savefig("ca_2_" + str(num)+ "_" + corr + ".png")
-    return
+    plt.legend(loc ='lower right')
+    plt.savefig(dis+"_1_"+str(num)+"_"+corr+".png")
+    
+ 
+#    plt.clf()
+#    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
+#    plt.xlabel('number of machines')
+#    plt.ylabel('Ratio of Social welfare of MDRPSPA to CA-PROVISION')
+#    plt.ylim(1,2)
+#    plt.savefig("ca_2_" + str(num)+ "_" + corr + ".png")
+#    return
 
 def draw_ca_all():
     ratios1 = []
@@ -1151,7 +1153,9 @@ if __name__ == '__main__':
 #    generate_ec2_2(10,'corr1')
 #    generate_ec2_1(10,'corr_opt')
 #    generate_ec2_2(10,'corr_opt')
-    draw_ec2(100,'corr0')
+#    draw_ec2(100,'corr0')
+#    draw_ec2(100,'corr1')
+#    draw_ec2(100,'corr_opt')
 #    draw_ec2_all(100)
 
 # ca
@@ -1162,7 +1166,10 @@ if __name__ == '__main__':
 #    compare_ca_1(100,'ca','corr_opt')
 #    compare_ca_2(10,'ca','corr_opt')
 #    draw_ca(100,'corr_opt')
-    draw_ca_all()
+#    draw_ca(100,'corr0')
+#    draw_ca(100,'corr1')
+    draw_ca(100,'ca','corr_opt')
+#    draw_ca_all()
 
 # quality
 #    generate_quality_data(100,'uniform','corr0')
