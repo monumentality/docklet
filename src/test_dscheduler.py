@@ -1054,8 +1054,9 @@ if __name__ == '__main__':
 #    draw_ca(100,'corr_opt')
 
 # quality
-    generate_quality_data(100,'uniform','corr1')
-    generate_quality_data(100,'uniform','corr_opt')
+    generate_quality_data(100,'uniform','corr0')
+#    generate_quality_data(100,'uniform','corr1')
+#    generate_quality_data(100,'uniform','corr_opt')
 #    draw_test2_result()
 #    draw_test1_result()
 #    test_time()
