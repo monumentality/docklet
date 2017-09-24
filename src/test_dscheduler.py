@@ -626,20 +626,20 @@ def draw_ec2(num, corr):
             sw1.append(float(arr[0]))
             sw2.append(float(arr[1]))
 
-    plt.figure(1)
-    plt.plot(range(1,100),sw1,'k-',label='MDRA', color='red')
-    plt.plot(range(1,100),sw2,'k--',label='EC2', color='blue')
+    plt.clf()
+    plt.plot(range(1,num), sw1, 'k-', label='MDRA', color='red')
+    plt.plot(range(1,num), sw2, 'k--', label='EC2', color='blue')
     plt.xlabel('number of machines')
     plt.ylabel('social welfare')
-    plt.legend(loc ='upper left')
-    plt.savefig("ec2_1_"+str(num) +"_"+ corr + ".png")
+    plt.legend(loc ='lower right')
+    plt.savefig("ec2_1_"+str(num)+"_"+corr+".png")
 
-    plt.figure(2)
-    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
-    plt.xlabel('number of machines')
-    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
-    plt.ylim(1,1.3)
-    plt.savefig("ec2_2_"+str(num)+"_" + corr + ".png")
+#    plt.figure(2)
+#    plt.plot(np.array(range(1,100)),np.array(ratios),'k-')
+#    plt.xlabel('number of machines')
+#    plt.ylabel('Ratio of Social welfare of MDRPSPA to EC2')
+#    plt.ylim(1,1.3)
+#    plt.savefig("ec2_2_"+str(num)+"_" + corr + ".png")
 
 def draw_ec2_all(num):
     ratios1 = []
@@ -1151,7 +1151,8 @@ if __name__ == '__main__':
 #    generate_ec2_2(10,'corr1')
 #    generate_ec2_1(10,'corr_opt')
 #    generate_ec2_2(10,'corr_opt')
-    draw_ec2_all(100)
+    draw_ec2(100,'corr0')
+#    draw_ec2_all(100)
 
 # ca
 #    compare_ca_1(100,'ca','corr0')
