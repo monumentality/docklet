@@ -6,6 +6,7 @@ if __name__ == '__main__':
     dis = sys.argv[1]
     corr = sys.argv[2]
 
+
     for i in [90,100]:
         cmd = 'gcc -o relax_opt -DMACHINES='+str(i)+ ' -DDIS=\"\\\"'+dis+'\"\\\" -DCORR=\"\\\"'+corr+ '\"\\\" relax_opt.c'
         print(cmd)
